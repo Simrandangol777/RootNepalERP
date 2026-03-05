@@ -15,15 +15,6 @@ const Home = () => {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      {/* Logo in top left */}
-      <div className="absolute top-8 left-8 z-10">
-        <img 
-          src={logo} 
-          alt="ERP System Logo" 
-          className="h-12 w-auto rounded-lg shadow-lg hover:scale-105 transition-transform duration-300"
-        />
-      </div>
-
       <div className="relative min-h-screen flex items-center justify-center px-4 py-12">
         <div className="max-w-7xl w-full grid lg:grid-cols-2 gap-12 items-center">
           
@@ -99,24 +90,6 @@ const Home = () => {
                 </div>
               </div>
             </div>
-
-            {/* Stats */}
-            {/* <div className="flex items-center gap-8 pt-4">
-              <div>
-                <div className="text-3xl font-bold text-white">10K+</div>
-                <div className="text-sm text-gray-400">Active Users</div>
-              </div>
-              <div className="w-px h-12 bg-gray-700"></div>
-              <div>
-                <div className="text-3xl font-bold text-white">99.9%</div>
-                <div className="text-sm text-gray-400">Uptime</div>
-              </div>
-              <div className="w-px h-12 bg-gray-700"></div>
-              <div>
-                <div className="text-3xl font-bold text-white">24/7</div>
-                <div className="text-sm text-gray-400">Support</div>
-              </div>
-            </div> */}
           </div>
 
           {/* Right Section - Auth Card */}

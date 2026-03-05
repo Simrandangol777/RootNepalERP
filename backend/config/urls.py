@@ -17,8 +17,18 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from django.http import HttpResponse
+
+# Root route view
+def root_view(request):
+    return HttpResponse("Welcome to the RootNepalERP API")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("accounts.urls")),
+    path("api/", include([
+        path("auth/", include("accounts.urls")),
+        # Add other app URLs here
+    ])),
+    path("", root_view, name="root"),
 ]

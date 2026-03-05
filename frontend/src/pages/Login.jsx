@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import api from "../api/axios";
+import { setAuthTokens, setStoredUser } from "../auth/storage";
 import logo from '../assets/logo.jpeg';
 
 const Login = () => {
@@ -10,6 +11,7 @@ const Login = () => {
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -24,23 +26,49 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
-
+    setError("");
+  
+    // basic validation
+    const emailOk = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|io|co|info)$/.test(formData.email);
+    if (!emailOk) {
+      setIsLoading(false);
+      setError("Email must look like name@gmail.com / name@outlook.com / etc.");
+      return;
+    }
+  
     try {
-      // Replace with your actual API endpoint
-      const response = await axios.post('YOUR_BACKEND_URL/api/login/', formData);
+      // const response = await api.post("/api/auth/login/", {
+      //   username: formData.email.split("@")[0], // because backend username is email prefix
+      //   password: formData.password,
+      // });
+      const response = await api.post("auth/login/", formData);
+      setAuthTokens(response.data.access, response.data.refresh, rememberMe);
+
+      const fallbackName = formData.email.split("@")[0] || "Username";
+      setStoredUser({
+        name: fallbackName,
+        email: formData.email,
+      });
+
+      try {
+        const profileRes = await api.get("auth/profile/");
+        setStoredUser({
+          name: profileRes.data?.fullName || fallbackName,
+          email: profileRes.data?.email || formData.email,
+        });
+      } catch {
+        // Keep fallback user details when profile endpoint is unavailable.
+      }
+
+      navigate("/dashboard");
       
-      // Store token in localStorage
-      localStorage.setItem('token', response.data.token);
-      
-      // Redirect to dashboard
-      navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
+      setError("Invalid credentials. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden flex items-center justify-center p-4">
@@ -51,24 +79,9 @@ const Login = () => {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      {/* Logo in top left */}
-      <Link to="/" className="absolute top-8 left-8 z-10">
-        <img 
-          src={logo} 
-          alt="ERP System Logo" 
-          className="h-12 w-auto rounded-lg shadow-lg hover:scale-105 transition-transform duration-300"
-        />
-      </Link>
-
-      {/* Back button */}
-      <Link 
-        to="/" 
-        className="absolute top-8 right-8 flex items-center gap-2 text-white/80 hover:text-white transition-colors group z-10"
-      >
-        <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        <span>Back to Home</span>
+      <Link to="/"
+      className="absolute top-8 left-8 z-10 rounded-full bg-white/10 px-5 py-2 text-sm text-gray-200 backdrop-blur-md transition hover:bg-white/20">
+        ← Back to Home
       </Link>
 
       {/* Main Content */}
@@ -93,45 +106,6 @@ const Login = () => {
               Sign in to access your dashboard and manage your business operations efficiently.
             </p>
           </div>
-
-          {/* Features */}
-          {/* <div className="space-y-4">
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-white">Secure Authentication</h3>
-                <p className="text-sm text-gray-400">Your data is protected with enterprise-grade security</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-white">Instant Access</h3>
-                <p className="text-sm text-gray-400">Get to your dashboard in seconds</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center flex-shrink-0">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-white">Always Protected</h3>
-                <p className="text-sm text-gray-400">24/7 monitoring and security updates</p>
-              </div>
-            </div>
-          </div> */}
         </div>
 
         {/* Right Side - Login Form */}
@@ -227,6 +201,8 @@ const Login = () => {
                   <label className="flex items-center cursor-pointer">
                     <input
                       type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
                       className="w-4 h-4 text-purple-600 bg-white/5 border-white/10 rounded focus:ring-purple-500 focus:ring-offset-0"
                     />
                     <span className="ml-2 text-sm text-gray-300">Remember me</span>

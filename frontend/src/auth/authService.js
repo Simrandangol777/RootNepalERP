@@ -1,4 +1,5 @@
 import api from "../api/axios";
+import { clearAuthData, setAuthTokens } from "./storage";
 
 export const register = async (data) => {
   const response = await api.post("auth/register/", data);
@@ -7,14 +8,12 @@ export const register = async (data) => {
 
 export const login = async (data) => {
   const response = await api.post("auth/login/", data);
-  localStorage.setItem("accessToken", response.data.access);
-  localStorage.setItem("refreshToken", response.data.refresh);
+  setAuthTokens(response.data.access, response.data.refresh, true);
   return response.data;
 };
 
 export const logout = () => {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
+  clearAuthData();
 };
 
 export const getCurrentUser = async () => {

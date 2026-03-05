@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import api from "../api/axios";
+import { setAuthTokens, setStoredUser } from "../auth/storage";
 import logo from '../assets/logo.jpeg';
 
 const Register = () => {
@@ -38,39 +39,60 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-
+    setError("");
+  
+    const emailOk = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|io|co|info)$/.test(formData.email);
+    if (!emailOk) {
+      setError("Email must look like name@gmail.com / name@outlook.com / etc.");
+      return;
+    }
+  
+    const passwordOk = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/.test(formData.password);
+    if (!passwordOk) {
+      setError("Password must have 1 uppercase, 1 lowercase, 1 number, 1 special char and be at least 8 chars.");
+      return;
+    }
+  
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return;
     }
-
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return;
-    }
-
+  
     setIsLoading(true);
 
     try {
-      const response = await axios.post('YOUR_BACKEND_URL/api/register/', {
-        full_name: formData.fullName,
+      const response = await api.post("auth/register/", {
         email: formData.email,
-        company: formData.company,
-        password: formData.password
+        password: formData.password,
       });
-
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-      }
-
-      navigate('/login');
+    
+      // Keep register login persistent by default.
+      setAuthTokens(response.data.access, response.data.refresh, true);
+      setStoredUser({
+        name: formData.fullName || formData.email.split("@")[0] || "Username",
+        email: formData.email,
+      });
+    
+      // redirect
+      navigate("/dashboard");
+    
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      console.log("REGISTER ERROR:", err.response?.data || err.message);
+    
+      const data = err.response?.data;
+    
+      if (data && typeof data === "object") {
+        const firstKey = Object.keys(data)[0];
+        const firstMsg = Array.isArray(data[firstKey]) ? data[firstKey][0] : data[firstKey];
+        setError(firstMsg || "Registration failed.");
+      } else {
+        setError("Registration failed.");
+      }
     } finally {
       setIsLoading(false);
     }
   };
+  
 
   const getPasswordStrengthColor = () => {
     if (passwordStrength === 0) return 'bg-gray-600';
@@ -97,24 +119,9 @@ const Register = () => {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      {/* Logo in top left */}
-      {/* <Link to="/" className="absolute top-8 left-8 z-10">
-        <img 
-          src={logo} 
-          alt="ERP System Logo" 
-          className="h-12 w-auto rounded-lg shadow-lg hover:scale-105 transition-transform duration-300"
-        />
-      </Link> */}
-
-      {/* Back button */}
-      <Link 
-        to="/" 
-        className="absolute top-8 right-8 flex items-center gap-2 text-white/80 hover:text-white transition-colors group z-10"
-      >
-        <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        <span>Back to Home</span>
+      <Link to="/"
+      className="absolute top-8 left-8 z-10 rounded-full bg-white/10 px-5 py-2 text-sm text-gray-200 backdrop-blur-md transition hover:bg-white/20">
+        ← Back to Home
       </Link>
 
       {/* Main Content */}
@@ -123,13 +130,6 @@ const Register = () => {
         {/* Left Side - Benefits */}
         <div className="hidden lg:block text-white space-y-8">
           <div className="space-y-4">
-            {/* <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/20 border border-green-500/30 backdrop-blur-sm">
-              <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span className="text-sm font-medium text-green-200">Free 30-Day Trial</span>
-            </div> */}
-
             <h1 className="text-5xl font-bold leading-tight">
               Start Your
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400">
