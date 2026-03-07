@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import logo from '../assets/logo.jpeg';
 
@@ -7,7 +7,7 @@ const Home = () => {
   const [hoveredButton, setHoveredButton] = useState(null);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden flex flex-col">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
@@ -15,7 +15,7 @@ const Home = () => {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="relative min-h-screen flex items-center justify-center px-4 py-12">
+      <div className="relative flex-1 flex items-center justify-center px-4 py-12">
         <div className="max-w-7xl w-full grid lg:grid-cols-2 gap-12 items-center">
           
           {/* Left Section - Hero Content */}
@@ -174,13 +174,13 @@ const Home = () => {
                 <div className="mt-8 text-center">
                   <p className="text-sm text-gray-400">
                     By continuing, you agree to our{' '}
-                    <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors">
+                    <Link to="/terms-of-service" className="text-purple-400 hover:text-purple-300 transition-colors">
                       Terms of Service
-                    </a>
+                    </Link>
                     {' '}and{' '}
-                    <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors">
+                    <Link to="/privacy-policy" className="text-purple-400 hover:text-purple-300 transition-colors">
                       Privacy Policy
-                    </a>
+                    </Link>
                   </p>
                 </div>
 

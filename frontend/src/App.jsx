@@ -1,45 +1,21 @@
-// import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-// import Home from "./pages/Home";
-// import Login from "./pages/Login";
-// import Register from "./pages/Register";
-// import Dashboard from "./pages/Dashboard";
-// import Profile from "./pages/Profile";
+import { Navigate, Route, Routes } from "react-router-dom";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import Profile from "./pages/Profile";
+import ProfileOverview from "./pages/ProfileOverview";
+import Products from './pages/Products';
+import Categories from "./pages/Categories";
+import Inventory from './pages/Inventory';
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Security from "./pages/Security";
+import Sales from "./pages/Sales";
+import SalesInvoice from "./pages/SalesInvoice";
+import Purchase from "./pages/Purchase";
+import PurchaseInvoice from "./pages/PurchaseInvoice";
 // import ProtectedRoute from "./components/ProtectedRoute";
-
-// export default function App() {
-//   return (
-//     <Routes>
-//       <Route path="/" element={<Home />} />
-//       <Route path="/login" element={<Login />} />
-//       <Route path="/register" element={<Register />} />
-
-//       <Route
-//         path="/dashboard"
-//         element={
-//           <ProtectedRoute>
-//             <Dashboard />
-//           </ProtectedRoute>
-//         }
-//       />
-//       <Route
-//         path="/profile"
-//         element={
-//           <ProtectedRoute>
-//             <Profile />
-//           </ProtectedRoute>
-//         }
-//       />
-//     </Routes>
-//   );
-// }
-
-import { Routes, Route, Navigate } from 'react-router-dom';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Profile from './pages/Profile';
-// import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -47,6 +23,9 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/terms-of-service" element={<TermsOfService />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/security" element={<Security />} />
         
         {/* Protected Routes - Uncomment when ProtectedRoute component is ready */}
         {/* <Route
@@ -66,16 +45,21 @@ function App() {
           }
         /> */}
         
-        {/* Temporary routes without protection */}
+      {/* Dashboard Pages */}
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/profile-overview" element={<ProfileOverview />} />
       <Route path="/profile" element={<Profile />} />
+      <Route path="/products" element={<Products />} />
+      <Route path="/categories" element={<Categories />} />
+      <Route path="/inventory" element={<Inventory />} />
+      <Route path="/salesinvoice" element={<SalesInvoice />} />
+      <Route path="/sales/invoice/:saleId" element={<SalesInvoice />} />
+      <Route path="/purchase/invoice/:purchaseId" element={<PurchaseInvoice />} />
         
-        {/* Placeholder routes for other pages */}
-      <Route path="/product" element={<Dashboard />} />
-      <Route path="/inventory" element={<Dashboard />} />
-      <Route path="/categories" element={<Dashboard />} />
-      <Route path="/purchase" element={<Dashboard />} />
-      <Route path="/sales" element={<Dashboard />} />
+      {/* Placeholder routes for other pages */}
+      <Route path="/product" element={<Products />} />
+      <Route path="/purchase" element={<Purchase />} />
+      <Route path="/sales" element={<Sales />} />
       <Route path="/reports" element={<Dashboard />} />
         
         {/* Catch all route - redirect to home */}

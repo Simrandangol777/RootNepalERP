@@ -14,6 +14,7 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [forgotPasswordMessage, setForgotPasswordMessage] = useState("");
 
   const handleChange = (e) => {
     setFormData({
@@ -21,6 +22,7 @@ const Login = () => {
       [e.target.name]: e.target.value
     });
     setError('');
+    setForgotPasswordMessage("");
   };
 
   const handleSubmit = async (e) => {
@@ -63,7 +65,8 @@ const Login = () => {
       navigate("/dashboard");
       
     } catch (err) {
-      setError("Invalid credentials. Please try again.");
+      const data = err?.response?.data || {};
+      setError(data?.message || "Invalid credentials. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -129,11 +132,19 @@ const Login = () => {
 
               {/* Error Message */}
               {error && (
-                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
-                  <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-sm text-red-300">{error}</p>
+                <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-sm text-red-300">{error}</p>
+                  </div>
+                </div>
+              )}
+
+              {forgotPasswordMessage && (
+                <div className="mb-6 rounded-xl border border-blue-400/20 bg-blue-500/10 p-4">
+                  <p className="text-sm text-blue-200">{forgotPasswordMessage}</p>
                 </div>
               )}
 
@@ -197,7 +208,7 @@ const Login = () => {
                 </div>
 
                 {/* Remember & Forgot */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <label className="flex items-center cursor-pointer">
                     <input
                       type="checkbox"
@@ -207,9 +218,12 @@ const Login = () => {
                     />
                     <span className="ml-2 text-sm text-gray-300">Remember me</span>
                   </label>
-                  <a href="#" className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors">
-                    Forgot password?
-                  </a>
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-purple-300 transition-colors hover:text-purple-200"
+                  >
+                    Forgot Password?
+                  </button>
                 </div>
 
                 {/* Submit */}

@@ -14,7 +14,8 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
@@ -25,10 +26,15 @@ def root_view(request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/auth/", include("accounts.urls")),
-    path("api/", include([
-        path("auth/", include("accounts.urls")),
-        # Add other app URLs here
-    ])),
+
+    # Root route
     path("", root_view, name="root"),
+
+    # Auth routes
+    path("api/auth/", include("accounts.urls")),
+
+    # Product routes
+    path("api/", include("products.urls")),
 ]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

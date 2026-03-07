@@ -1,82 +1,62 @@
+import re
 from django.contrib.auth.models import User
 from rest_framework import serializers
-import re
+from .models import Profile
+
+PASSWORD_REGEX = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$"
 
 
-class RegisterSerializer(serializers.ModelSerializer):
+class RegisterSerializer(serializers.Serializer):
+    fullName = serializers.CharField(max_length=120)
+    email = serializers.EmailField()
+    company = serializers.CharField(max_length=120, required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, min_length=8)
 
-    class Meta:
-        model = User
-        fields = ("id", "email", "password")
-
     def validate_email(self, value):
-        allowed_domains = ["gmail.com", "hotmail.com", "outlook.com", "yahoo.com"]
-
-        domain = value.split("@")[-1]
-        if domain not in allowed_domains:
-            raise serializers.ValidationError(
-                "Email must be Gmail, Outlook, Hotmail, or Yahoo"
-            )
-
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Email already registered")
-
-        return value
+        email = value.strip().lower()
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError("Email already exists.")
+        return email
 
     def validate_password(self, value):
-        if not re.search(r"[A-Z]", value):
-            raise serializers.ValidationError("Password must contain one uppercase letter")
-        if not re.search(r"[a-z]", value):
-            raise serializers.ValidationError("Password must contain one lowercase letter")
-        if not re.search(r"[0-9]", value):
-            raise serializers.ValidationError("Password must contain one number")
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", value):
-            raise serializers.ValidationError("Password must contain one special character")
-
+        if not re.match(PASSWORD_REGEX, value):
+            raise serializers.ValidationError(
+                "Password must be at least 8 characters and include 1 uppercase, 1 lowercase, 1 number, and 1 special character."
+            )
         return value
 
     def create(self, validated_data):
+        full_name = validated_data["fullName"].strip()
+        email = validated_data["email"]
+        company = validated_data.get("company", "").strip()
+        password = validated_data["password"]
+
+        base_username = email.split("@")[0]
+        username = base_username
+        i = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{i}"
+            i += 1
+
         user = User.objects.create_user(
-            username=validated_data["email"],
-            email=validated_data["email"],
-            password=validated_data["password"],
+            username=username,
+            email=email,
+            password=password,
+            is_active=True,
         )
+
+        profile, _ = Profile.objects.get_or_create(user=user)
+        profile.full_name = full_name
+        profile.company = company
+        profile.save()
+
         return user
 
 
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-
-
 class UserMeSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source="profile.full_name", read_only=True)
+    company = serializers.CharField(source="profile.company", read_only=True)
+
     class Meta:
         model = User
-        fields = ("id", "username", "email", "first_name", "last_name")
-
-
-class UserProfileSerializer(serializers.ModelSerializer):
-    fullName = serializers.CharField(source="first_name")
-    email = serializers.EmailField()
-    
-    class Meta:
-        model = User
-        fields = ["id", "fullName", "email"]
-
-    def update(self, instance, validated_data):
-        instance.first_name = validated_data.get("first_name", instance.first_name)
-        instance.email = validated_data.get("email", instance.email)
-        instance.save()
-        return instance
-
-
-class ChangePasswordSerializer(serializers.Serializer):
-    currentPassword = serializers.CharField(required=True)
-    newPassword = serializers.CharField(required=True)
-
-    def validate_currentPassword(self, value):
-        user = self.context["request"].user
-        if not user.check_password(value):
-            raise serializers.ValidationError("Current password is incorrect")
-        return value
+        fields = ("id", "username", "email", "full_name", "company")

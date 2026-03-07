@@ -117,7 +117,12 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 403) {
-      console.error("Authorization Error: Ensure backend allows requests from this origin.");
+      const normalizedUrl = String(originalRequest?.url || "").replace(/^\/+/, "");
+      const expectedAuth403 = normalizedUrl.startsWith("auth/login");
+
+      if (!expectedAuth403) {
+        console.error("Authorization Error: Ensure backend allows requests from this origin.");
+      }
     } else if (!error.response) {
       console.error("Network Error: Unable to reach the server.");
     }

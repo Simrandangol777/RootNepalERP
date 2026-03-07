@@ -1,13 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../api/axios";
-import { getStoredUser, setStoredUser } from "../auth/storage";
+import { getAccessToken, getStoredUser, setStoredUser } from "../auth/storage";
 import DashboardLayout from '../components/DashboardLayout';
+
+const buildApiOrigin = () => {
+  const envBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (!envBaseUrl) return "http://127.0.0.1:8000";
+  return envBaseUrl.replace(/\/+$/, "").replace(/\/api$/, "");
+};
+
+const API_ORIGIN = buildApiOrigin();
+
+const toMediaUrl = (imagePath) => {
+  if (!imagePath) return "";
+  if (/^https?:\/\//i.test(imagePath)) return imagePath;
+  return imagePath.startsWith("/")
+    ? `${API_ORIGIN}${imagePath}`
+    : `${API_ORIGIN}/${imagePath}`;
+};
 
 const Profile = () => {
   const storedUser = getStoredUser();
+  const profilePictureInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('edit-profile');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [profilePicturePreview, setProfilePicturePreview] = useState(storedUser.avatar || "");
+  const [profilePictureFile, setProfilePictureFile] = useState(null);
+  const [removeProfilePicture, setRemoveProfilePicture] = useState(false);
 
   // Edit Profile Form State
   const [profileData, setProfileData] = useState({
@@ -32,22 +52,55 @@ const Profile = () => {
     confirm: false
   });
 
+  const getApiErrorMessage = (error, fallback) => {
+    const data = error?.response?.data;
+    if (!data) return fallback;
+    if (typeof data === "string") return data;
+    if (typeof data.message === "string") return data.message;
+
+    const firstKey = Object.keys(data)[0];
+    const firstValue = data[firstKey];
+    if (Array.isArray(firstValue) && firstValue.length > 0) return String(firstValue[0]);
+    if (typeof firstValue === "string") return firstValue;
+    return fallback;
+  };
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
+        if (!getAccessToken()) {
+          return;
+        }
         const res = await api.get("auth/profile/");
+        const profilePicture = toMediaUrl(res.data.profilePicture || "");
 
         setProfileData((prev) => ({
           ...prev,
           fullName: res.data.fullName ?? prev.fullName,
           email: res.data.email ?? prev.email,
+          company: res.data.company ?? prev.company,
+          phone: res.data.phone ?? prev.phone,
+          role: res.data.role ?? prev.role,
+          address: res.data.address ?? prev.address,
         }));
+        setProfilePicturePreview(profilePicture);
+        setRemoveProfilePicture(false);
         setStoredUser({
           name: res.data.fullName ?? storedUser.name,
           email: res.data.email ?? storedUser.email,
+          avatar: profilePicture || null,
         });
       } catch (err) {
-        console.error(err);
+        if (err?.response?.status === 401) {
+          setMessage({ type: "error", text: "Session expired. Please login again." });
+        } else if (err?.response?.status === 400) {
+          setMessage({
+            type: "error",
+            text: getApiErrorMessage(err, "Profile data is invalid. Please check your inputs."),
+          });
+        } else {
+          console.error(err);
+        }
       }
     };
 
@@ -59,6 +112,25 @@ const Profile = () => {
       ...profileData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleProfilePictureChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setProfilePictureFile(file);
+    setRemoveProfilePicture(false);
+    const preview = URL.createObjectURL(file);
+    setProfilePicturePreview(preview);
+  };
+
+  const handleRemoveProfilePicture = () => {
+    setProfilePicturePreview("");
+    setProfilePictureFile(null);
+    setRemoveProfilePicture(true);
+    if (profilePictureInputRef.current) {
+      profilePictureInputRef.current.value = "";
+    }
   };
 
   const handlePasswordChange = (e) => {
@@ -74,22 +146,55 @@ const Profile = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      await api.patch(
-        "auth/profile/",
-        {
-          fullName: profileData.fullName,
-          email: profileData.email
-        }
-      );
-      
+      const formData = new FormData();
+      formData.append("fullName", profileData.fullName || "");
+      formData.append("email", profileData.email || "");
+      formData.append("company", profileData.company || "");
+      formData.append("phone", profileData.phone || "");
+      formData.append("role", profileData.role || "");
+      formData.append("address", profileData.address || "");
+
+      if (profilePictureFile) {
+        formData.append("profilePicture", profilePictureFile);
+      } else if (removeProfilePicture) {
+        formData.append("removeProfilePicture", "true");
+      }
+
+      const res = await api.patch("auth/profile/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const updatedProfilePicture = toMediaUrl(res.data.profilePicture || "");
+      setProfilePicturePreview(updatedProfilePicture);
+      setProfilePictureFile(null);
+      setRemoveProfilePicture(false);
+      setProfileData((prev) => ({
+        ...prev,
+        fullName: res.data.fullName ?? prev.fullName,
+        email: res.data.email ?? prev.email,
+        company: res.data.company ?? prev.company,
+        phone: res.data.phone ?? prev.phone,
+        role: res.data.role ?? prev.role,
+        address: res.data.address ?? prev.address,
+      }));
       setStoredUser({
-        name: profileData.fullName,
-        email: profileData.email,
+        name: res.data.fullName ?? profileData.fullName,
+        email: res.data.email ?? profileData.email,
+        avatar: updatedProfilePicture || null,
       });
       
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to update profile. Please try again.' });
+      if (error?.response?.status === 401) {
+        setMessage({ type: 'error', text: 'Session expired. Please login again.' });
+      } else if (error?.response?.status === 400) {
+        setMessage({
+          type: "error",
+          text: getApiErrorMessage(error, "Invalid profile data."),
+        });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to update profile. Please try again.' });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +228,16 @@ const Profile = () => {
       setMessage({ type: 'success', text: 'Password changed successfully!' });
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to change password. Please try again.' });
+      if (error?.response?.status === 401) {
+        setMessage({ type: 'error', text: 'Session expired. Please login again.' });
+      } else if (error?.response?.status === 400) {
+        setMessage({
+          type: "error",
+          text: getApiErrorMessage(error, "Invalid password change request."),
+        });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to change password. Please try again.' });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -206,6 +320,50 @@ const Profile = () => {
                 <form onSubmit={handleProfileSubmit} className="space-y-6">
                   <h2 className="text-2xl font-bold text-white mb-6">Edit Profile</h2>
 
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                    <label className="text-sm font-semibold text-white mb-3 block">Profile Picture</label>
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
+                        {profilePicturePreview ? (
+                          <img
+                            src={profilePicturePreview}
+                            alt={profileData.fullName}
+                            className="w-24 h-24 object-cover"
+                          />
+                        ) : (
+                          (profileData.fullName?.charAt(0) || "U").toUpperCase()
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <input
+                          ref={profilePictureInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleProfilePictureChange}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => profilePictureInputRef.current?.click()}
+                          className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all"
+                        >
+                          Upload Image
+                        </button>
+                        {profilePicturePreview && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveProfilePicture}
+                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-300 rounded-lg transition-all"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-white/50 text-xs mt-3">Supported: JPG, PNG, WebP</p>
+                  </div>
+
                   <div className="grid md:grid-cols-2 gap-6">
                     {/* Full Name */}
                     <div className="space-y-2">
@@ -269,8 +427,7 @@ const Profile = () => {
                         name="role"
                         value={profileData.role}
                         onChange={handleProfileChange}
-                        disabled
-                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white/50 placeholder-gray-400 cursor-not-allowed"
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                       />
                     </div>
 

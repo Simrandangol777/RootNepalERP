@@ -157,6 +157,77 @@ body {
   background: linear-gradient(to bottom right, #0f172a, #581c87, #0f172a);
 }
 
+:root[data-theme="light"] body {
+  background: linear-gradient(to bottom right, #f8fafc, #dbeafe, #f8fafc);
+}
+
+:root[data-theme="dark"] body {
+  background: linear-gradient(to bottom right, #0f172a, #581c87, #0f172a);
+}
+
+:root[data-theme="light"] ::-webkit-scrollbar-track {
+  background: #e2e8f0;
+}
+
+:root[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #60a5fa, #0ea5e9);
+}
+
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #3b82f6, #0284c7);
+}
+
+:root[data-theme="light"] * {
+  scrollbar-color: #60a5fa #e2e8f0;
+}
+
+/* Dashboard content readability in light mode */
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0.82) !important;
+}
+
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .bg-white\/5 {
+  background-color: rgba(248, 250, 252, 0.95) !important;
+}
+
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .border-white\/20 {
+  border-color: rgba(148, 163, 184, 0.45) !important;
+}
+
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .border-white\/10 {
+  border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .text-white {
+  color: #0f172a !important;
+}
+
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .text-white\/70 {
+  color: #334155 !important;
+}
+
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .text-white\/60 {
+  color: #475569 !important;
+}
+
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .text-white\/50 {
+  color: #64748b !important;
+}
+
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .hover\:bg-white\/10:hover {
+  background-color: rgba(241, 245, 249, 1) !important;
+}
+
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .hover\:bg-white\/20:hover {
+  background-color: rgba(226, 232, 240, 1) !important;
+}
+
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .bg-gradient-to-r .text-white,
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .bg-gradient-to-t .text-white,
+.dashboard-shell[data-dashboard-theme="light"] .dashboard-content .bg-gradient-to-br .text-white {
+  color: #ffffff !important;
+}
+
 /* Improve text rendering */
 body {
   -webkit-font-smoothing: antialiased;

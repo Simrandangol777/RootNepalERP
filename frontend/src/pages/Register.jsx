@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from "../api/axios";
-import { setAuthTokens, setStoredUser } from "../auth/storage";
 import logo from '../assets/logo.jpeg';
 
 const Register = () => {
@@ -9,7 +8,6 @@ const Register = () => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    company: '',
     password: '',
     confirmPassword: ''
   });
@@ -18,6 +16,7 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -40,6 +39,7 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccessMessage("");
   
     const emailOk = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|io|co|info)$/.test(formData.email);
     if (!emailOk) {
@@ -62,19 +62,13 @@ const Register = () => {
 
     try {
       const response = await api.post("auth/register/", {
+        fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
       });
-    
-      // Keep register login persistent by default.
-      setAuthTokens(response.data.access, response.data.refresh, true);
-      setStoredUser({
-        name: formData.fullName || formData.email.split("@")[0] || "Username",
-        email: formData.email,
-      });
-    
-      // redirect
-      navigate("/dashboard");
+      setSuccessMessage(
+        response.data?.message || "Account created successfully."
+      );
     
     } catch (err) {
       console.log("REGISTER ERROR:", err.response?.data || err.message);
@@ -192,6 +186,12 @@ const Register = () => {
                 </div>
               )}
 
+              {successMessage && (
+                <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+                  <p className="text-sm text-green-300">{successMessage}</p>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Full Name */}
                 <div className="space-y-2">
@@ -231,26 +231,6 @@ const Register = () => {
                       required
                       className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                       placeholder="you@company.com"
-                    />
-                  </div>
-                </div>
-
-                {/* Company */}
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-white">Company Name</label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400 group-focus-within:text-purple-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-                    <input
-                      type="text"
-                      name="company"
-                      value={formData.company}
-                      onChange={handleChange}
-                      className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                      placeholder="Acme Inc."
                     />
                   </div>
                 </div>
@@ -357,9 +337,9 @@ const Register = () => {
                   />
                   <span className="text-sm text-gray-300">
                     I agree to the{' '}
-                    <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors">Terms of Service</a>
+                    <Link to="/terms-of-service" className="text-purple-400 hover:text-purple-300 transition-colors">Terms of Service</Link>
                     {' '}and{' '}
-                    <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors">Privacy Policy</a>
+                    <Link to="/privacy-policy" className="text-purple-400 hover:text-purple-300 transition-colors">Privacy Policy</Link>
                   </span>
                 </label>
 
@@ -390,6 +370,18 @@ const Register = () => {
                   </div>
                 </button>
               </form>
+
+              {successMessage && (
+                <div className="mt-4 space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/login")}
+                    className="w-full rounded-xl border border-white/20 bg-transparent px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
+                  >
+                    Go to Sign In
+                  </button>
+                </div>
+              )}
 
               {/* Sign In Link */}
               <div className="mt-8 text-center">

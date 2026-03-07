@@ -37,6 +37,7 @@ export const setAuthTokens = (access, refresh, rememberMe = true) => {
   inactiveStorage.removeItem("refresh");
   inactiveStorage.removeItem("user_name");
   inactiveStorage.removeItem("user_email");
+  inactiveStorage.removeItem("user_avatar");
 };
 
 export const setAccessToken = (access) => {
@@ -44,16 +45,22 @@ export const setAccessToken = (access) => {
   storage.setItem("access", access);
 };
 
-export const setStoredUser = ({ name, email }) => {
+export const setStoredUser = ({ name, email, avatar }) => {
   const storage = getPreferredStorage();
   if (name) storage.setItem("user_name", name);
   if (email) storage.setItem("user_email", email);
+  if (avatar === null) {
+    storage.removeItem("user_avatar");
+  } else if (avatar) {
+    storage.setItem("user_avatar", avatar);
+  }
   emitUserUpdated();
 };
 
 export const getStoredUser = () => ({
   name: localStorage.getItem("user_name") || sessionStorage.getItem("user_name") || "Username",
   email: localStorage.getItem("user_email") || sessionStorage.getItem("user_email") || "name@example.com",
+  avatar: localStorage.getItem("user_avatar") || sessionStorage.getItem("user_avatar") || "",
 });
 
 export const clearAuthData = () => {
@@ -61,11 +68,13 @@ export const clearAuthData = () => {
   localStorage.removeItem("refresh");
   localStorage.removeItem("user_name");
   localStorage.removeItem("user_email");
+  localStorage.removeItem("user_avatar");
 
   sessionStorage.removeItem("access");
   sessionStorage.removeItem("refresh");
   sessionStorage.removeItem("user_name");
   sessionStorage.removeItem("user_email");
+  sessionStorage.removeItem("user_avatar");
 
   localStorage.removeItem(AUTH_STORAGE_KEY);
   emitUserUpdated();
