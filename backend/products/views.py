@@ -1,10 +1,14 @@
 from decimal import Decimal
+from datetime import timedelta
+from django.db.models import Sum, F, Count, FloatField, ExpressionWrapper
+from django.db.models.functions import TruncMonth
+from django.utils import timezone
 from rest_framework import viewsets, filters, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
-from rest_framework import status
 from .models import Category, Product, StockAdjustment, Sale, SaleItem, Supplier, Purchase, PurchaseItem
 from .serializers import (CategorySerializer, ProductSerializer, InventoryListSerializer, StockAdjustmentSerializer, SaleCreateSerializer, SaleListSerializer, SaleDetailSerializer, 
     SupplierSerializer, PurchaseCreateSerializer, PurchaseListSerializer, PurchaseDetailSerializer,)
@@ -345,3 +349,262 @@ class PurchaseDeleteView(APIView):
 
         purchase.delete()
         return Response({"message": "Purchase deleted successfully."}, status=status.HTTP_200_OK)    
+
+class ReportsDashboardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get_start_datetime(self, date_range):
+        now = timezone.now()
+        if date_range == "this_week":
+            start_of_week = now - timedelta(days=now.weekday())
+            return start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+        if date_range == "this_month":
+            return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return None
+
+    def _format_last_stock_label(self, dt):
+        if not dt:
+            return "No stock history"
+
+        delta = timezone.now() - dt
+        if delta.days <= 0:
+            hours = delta.seconds // 3600
+            if hours <= 0:
+                return "Today"
+            return "1 hour ago" if hours == 1 else f"{hours} hours ago"
+        if delta.days == 1:
+            return "1 day ago"
+        if delta.days < 7:
+            return f"{delta.days} days ago"
+
+        weeks = delta.days // 7
+        if weeks < 5:
+            return "1 week ago" if weeks == 1 else f"{weeks} weeks ago"
+
+        months = max(1, delta.days // 30)
+        return "1 month ago" if months == 1 else f"{months} months ago"
+
+    def get(self, request):
+        date_range = request.query_params.get("date_range", "all_time")
+        allowed_ranges = {"all_time", "this_month", "this_week"}
+        if date_range not in allowed_ranges:
+            date_range = "all_time"
+
+        start_at = self._get_start_datetime(date_range)
+
+        sales_qs = Sale.objects.filter(status="Completed")
+        purchases_qs = Purchase.objects.filter(status="Received")
+        if start_at:
+            sales_qs = sales_qs.filter(created_at__gte=start_at)
+            purchases_qs = purchases_qs.filter(purchase_date__gte=start_at.date())
+
+        # ---------- SUMMARY ----------
+        total_revenue = sales_qs.aggregate(total=Sum("total"))["total"] or 0
+        purchase_summary = purchases_qs.aggregate(total=Sum("grand_total"), orders=Count("id"))
+        total_purchase_cost = purchase_summary["total"] or 0
+        total_purchase_orders = purchase_summary["orders"] or 0
+
+        gross_profit = float(total_revenue) - float(total_purchase_cost)
+        average_purchase_order_value = (
+            float(total_purchase_cost) / total_purchase_orders if total_purchase_orders else 0
+        )
+
+        total_products = Product.objects.count()
+        low_stock_count = Product.objects.filter(stock__gt=0, stock__lte=F("reorder_level")).count()
+        out_of_stock_count = Product.objects.filter(stock=0).count()
+        healthy_stock_count = max(total_products - low_stock_count - out_of_stock_count, 0)
+
+        inventory_value_expr = ExpressionWrapper(
+            F("stock") * F("price"),
+            output_field=FloatField()
+        )
+        inventory_value = Product.objects.aggregate(
+            total=Sum(inventory_value_expr)
+        )["total"] or 0
+
+        # ---------- TOP SELLING PRODUCTS ----------
+        top_selling_products_qs = (
+            SaleItem.objects.filter(sale__in=sales_qs)
+            .values("product__name")
+            .annotate(
+                units_sold=Sum("quantity"),
+                revenue=Sum("line_total")
+            )
+            .order_by("-units_sold")[:5]
+        )
+
+        top_selling_products = [
+            {
+                "name": item["product__name"],
+                "unitsSold": item["units_sold"] or 0,
+                "revenue": float(item["revenue"] or 0),
+            }
+            for item in top_selling_products_qs
+        ]
+
+        # ---------- TOP CATEGORIES ----------
+        top_categories_qs = (
+            SaleItem.objects.filter(sale__in=sales_qs)
+            .values("product__category__name")
+            .annotate(revenue=Sum("line_total"))
+            .order_by("-revenue")
+        )
+
+        total_category_revenue = sum(float(x["revenue"] or 0) for x in top_categories_qs)
+
+        top_categories = [
+            {
+                "name": item["product__category__name"] or "Uncategorized",
+                "revenue": float(item["revenue"] or 0),
+                "percentage": round(
+                    (float(item["revenue"] or 0) / total_category_revenue) * 100, 2
+                ) if total_category_revenue > 0 else 0,
+            }
+            for item in top_categories_qs[:5]
+        ]
+
+        # ---------- TOP SUPPLIERS ----------
+        top_suppliers_qs = (
+            purchases_qs
+            .values("supplier__name")
+            .annotate(
+                purchaseAmount=Sum("grand_total"),
+                orders=Count("id")
+            )
+            .order_by("-purchaseAmount")[:5]
+        )
+
+        top_suppliers = [
+            {
+                "name": item["supplier__name"],
+                "purchaseAmount": float(item["purchaseAmount"] or 0),
+                "orders": item["orders"] or 0,
+            }
+            for item in top_suppliers_qs
+        ]
+
+        # ---------- LOW STOCK ----------
+        low_stock_items_qs = Product.objects.filter(
+            stock__gt=0,
+            stock__lte=F("reorder_level")
+        ).select_related("category")[:10]
+
+        low_stock_items = [
+            {
+                "product": item.name,
+                "currentStock": item.stock,
+                "reorderLevel": item.reorder_level,
+                "category": item.category.name if item.category else "Uncategorized",
+            }
+            for item in low_stock_items_qs
+        ]
+
+        # ---------- OUT OF STOCK ----------
+        out_of_stock_items_qs = Product.objects.filter(stock=0).select_related("category")[:10]
+
+        out_of_stock_items = [
+            {
+                "product": item.name,
+                "lastStock": self._format_last_stock_label(
+                    item.stock_adjustments.order_by("-created_at").values_list("created_at", flat=True).first()
+                ),
+                "category": item.category.name if item.category else "Uncategorized",
+            }
+            for item in out_of_stock_items_qs
+        ]
+
+        # ---------- CATEGORY STOCK ----------
+        category_stock_qs = (
+            Product.objects.values("category__name")
+            .annotate(
+                products=Count("id"),
+                totalStock=Sum("stock"),
+                value=Sum(
+                    ExpressionWrapper(F("stock") * F("price"), output_field=FloatField())
+                )
+            )
+            .order_by("-value")
+        )
+
+        category_stock = [
+            {
+                "category": item["category__name"] or "Uncategorized",
+                "products": item["products"] or 0,
+                "totalStock": item["totalStock"] or 0,
+                "value": float(item["value"] or 0),
+            }
+            for item in category_stock_qs
+        ]
+
+        # ---------- MONTHLY SALES ----------
+        monthly_sales_qs = (
+            sales_qs
+            .annotate(month=TruncMonth("created_at"))
+            .values("month")
+            .annotate(sales=Sum("total"))
+            .order_by("month")
+        )
+
+        monthly_sales = [
+            {
+                "month": item["month"].strftime("%b %Y") if item["month"] else "Unknown",
+                "sales": float(item["sales"] or 0),
+            }
+            for item in monthly_sales_qs
+        ]
+
+        # ---------- SMART RESTOCK ----------
+        # Temporary rule-based logic until ML model is plugged in
+        restock_products_qs = Product.objects.filter(
+            stock__lte=F("reorder_level")
+        ).select_related("category")[:10]
+
+        restock_suggestions = []
+        for product in restock_products_qs:
+            predicted_demand = max(product.reorder_level * 2, product.reorder_level + 10)
+            suggested_qty = max(predicted_demand - product.stock, 0)
+
+            priority = "Medium"
+            if product.stock == 0 or product.stock <= max(1, product.reorder_level * 0.3):
+                priority = "High"
+            elif product.stock > product.reorder_level:
+                priority = "Low"
+
+            restock_suggestions.append({
+                "product": product.name,
+                "currentStock": product.stock,
+                "reorderLevel": product.reorder_level,
+                "predictedDemand": int(predicted_demand),
+                "suggestedQty": int(suggested_qty),
+                "leadTime": "7 days",
+                "priority": priority,
+            })
+
+        summary_data = {
+            "totalRevenue": float(total_revenue),
+            "totalPurchaseCost": float(total_purchase_cost),
+            "grossProfit": float(gross_profit),
+            "totalProducts": total_products,
+            "healthyStockItems": healthy_stock_count,
+            "lowStockItems": low_stock_count,
+            "outOfStockItems": out_of_stock_count,
+            "inventoryValue": float(inventory_value),
+            "restockSuggestions": len(restock_suggestions),
+            "totalPurchaseOrders": total_purchase_orders,
+            "averagePurchaseOrderValue": round(average_purchase_order_value, 2),
+            "dateRange": date_range,
+        }
+
+        response_data = {
+            "summaryData": summary_data,
+            "topSellingProducts": top_selling_products,
+            "topCategories": top_categories,
+            "topSuppliers": top_suppliers,
+            "lowStockItems": low_stock_items,
+            "outOfStockItems": out_of_stock_items,
+            "restockSuggestions": restock_suggestions,
+            "categoryStock": category_stock,
+            "monthlySales": monthly_sales,
+        }
+
+        return Response(response_data)

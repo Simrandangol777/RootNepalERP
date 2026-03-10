@@ -11,14 +11,10 @@ const navigationGroups = [
       { label: "Products", to: "/products" },
       { label: "Inventory", to: "/inventory" },
       { label: "Categories", to: "/categories" },
-    ],
-  },
-  {
-    title: "Account",
-    links: [
+      { label: "Purchases", to: "/purchase"},
+      { label: "Sales", to: "/sales"},
+      { label: "Reports", to: "/reports"},
       { label: "Profile", to: "/profile-overview" },
-      { label: "Login", to: "/login" },
-      { label: "Register", to: "/register" },
     ],
   },
 ];
@@ -28,6 +24,8 @@ const protectedPaths = new Set([
   "/products",
   "/inventory",
   "/categories",
+  "/purchase",
+  "/sales",
   "/profile-overview",
   "/profile",
 ]);
@@ -62,7 +60,7 @@ const Footer = ({ theme = "dark" }) => {
 
   const styles = isLight
     ? {
-        wrapper: "border-t border-slate-200 bg-white px-6 py-8 lg:px-8",
+        wrapper: "border-t border-slate-200 bg-white/85 backdrop-blur-xl px-6 py-8 lg:px-8",
         logoRing: "ring-slate-200",
         title: "text-slate-900",
         subtitle: "text-slate-500",
@@ -75,7 +73,7 @@ const Footer = ({ theme = "dark" }) => {
         legalText: "text-slate-500",
       }
     : {
-        wrapper: "border-t border-white/15 bg-slate-950/40 backdrop-blur-xl px-6 py-8 lg:px-8",
+        wrapper: "border-t border-white/20 bg-white/10 backdrop-blur-xl px-6 py-8 lg:px-8",
         logoRing: "ring-white/20",
         title: "text-white",
         subtitle: "text-white/60",
@@ -91,7 +89,7 @@ const Footer = ({ theme = "dark" }) => {
   return (
     <footer className={styles.wrapper}>
       <div className="mx-auto max-w-7xl">
-        <div className="grid gap-8 md:grid-cols-4">
+        <div className="grid gap-8 md:grid-cols-4 md:gap-x-14">
           <div className="md:col-span-2">
             <Link to={logoTarget} className="inline-flex items-center gap-3">
               <img
@@ -105,7 +103,7 @@ const Footer = ({ theme = "dark" }) => {
               </div>
             </Link>
             <p className={`mt-4 max-w-lg text-sm ${styles.description}`}>
-              A complete ERP workspace for product, inventory, and category
+              A complete ERP workspace for product, inventory, category, purchase and sales 
               management with fast workflows and clear reporting.
             </p>
             <div className={`mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm ${styles.meta}`}>
@@ -115,29 +113,33 @@ const Footer = ({ theme = "dark" }) => {
               >
                 support@rootnepalerp.com
               </a>
-              <span>Sun - Fri, 9:00 AM - 6:00 PM NPT</span>
-              <span>Kathmandu, Nepal</span>
+              <span>Sun - Sat, 9:00 AM - 9:00 PM NPT</span>
+              <span>Thamel, Kathmandu, Nepal</span>
             </div>
           </div>
 
           {navigationGroups.map((group) => (
-            <div key={group.title}>
-              <h3 className={`text-sm font-semibold uppercase tracking-wide ${styles.heading}`}>
+            <div key={group.title} className="md:col-span-2">
+              <h3 className={`text-center text-sm font-semibold uppercase tracking-wide ${styles.heading}`}>
                 {group.title}
               </h3>
-              <ul className={`mt-3 space-y-2 text-sm ${styles.list}`}>
-                {group.links.map((link) => (
-                  <li key={link.label}>
-                    <Link
-                      to={link.to}
-                      onClick={(event) => handleLinkAccess(event, link.to)}
-                      className={`${styles.link} transition-colors`}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
+              <div className="mx-auto mt-3 grid w-fit grid-cols-2 gap-x-10">
+                {[group.links.slice(0, 4), group.links.slice(4, 8)].map((linksChunk, index) => (
+                  <ul key={`${group.title}-${index}`} className={`space-y-2 text-sm ${styles.list}`}>
+                    {linksChunk.map((link) => (
+                      <li key={link.label}>
+                        <Link
+                          to={link.to}
+                          onClick={(event) => handleLinkAccess(event, link.to)}
+                          className={`${styles.link} transition-colors`}
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 ))}
-              </ul>
+              </div>
             </div>
           ))}
         </div>

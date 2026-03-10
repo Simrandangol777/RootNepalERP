@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (CategoryViewSet, ProductViewSet, InventoryListView, StockAdjustmentView, SalesListCreateView, SaleDetailView, SaleDeleteView,
-    SupplierListCreateView, PurchaseListCreateView, PurchaseDetailView, PurchaseDeleteView,)
+    SupplierListCreateView, PurchaseListCreateView, PurchaseDetailView, PurchaseDeleteView, ReportsDashboardView,)
 
 router = DefaultRouter()
 router.register(r"categories", CategoryViewSet, basename="categories")
@@ -21,4 +21,6 @@ urlpatterns = [
     path("purchases/", PurchaseListCreateView.as_view(), name="purchase-list-create"),
     path("purchases/<int:pk>/", PurchaseDetailView.as_view(), name="purchase-detail"),
     path("purchases/<int:pk>/delete/", PurchaseDeleteView.as_view(), name="purchase-delete"),
+
+    path("reports/dashboard/", ReportsDashboardView.as_view(), name="reports-dashboard"),
 ]

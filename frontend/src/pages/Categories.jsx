@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import AddEditCategoryModal from "../components/AddEditCategoryModal";
 import DeleteConfirmationModal from "../components/DeleteConfirmationModal";
@@ -60,6 +61,8 @@ const buildCategoryFormData = (categoryData) => {
 };
 
 const Categories = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
@@ -93,6 +96,19 @@ const Categories = () => {
   useEffect(() => {
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    if (!location.state || Object.keys(location.state).length === 0) return;
+
+    if (location.state.scrollToTop) {
+      window.scrollTo(0, 0);
+    }
+    if (location.state.openAddCategory) {
+      handleAddCategory();
+    }
+
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state]);
 
   const handleAddCategory = () => {
     setEditingCategory(null);

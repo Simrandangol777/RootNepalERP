@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../api/axios";
 
+const SKU_PATTERN = /^SK-[A-Z0-9]{3}$/;
+
 const AddEditProductModal = ({ product, onClose, onSave }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState(product?.image || null);
   const [imageFile, setImageFile] = useState(null);
   const [removeImage, setRemoveImage] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -40,10 +44,73 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    const nextValue =
+      name === "skuNumber" ? value.toUpperCase().replace(/\s+/g, "") : value;
+
     setFormData({
       ...formData,
-      [name]: value,
+      [name]: nextValue,
     });
+
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+    if (formError) {
+      setFormError("");
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+
+    if (!String(formData.name || "").trim()) {
+      errors.name = "Product Name is required.";
+    }
+
+    if (!String(formData.category || "").trim()) {
+      errors.category = "Category is required.";
+    }
+
+    const normalizedSku = String(formData.skuNumber || "").trim().toUpperCase();
+    if (!normalizedSku) {
+      errors.skuNumber = "SKU Number is required.";
+    } else if (!SKU_PATTERN.test(normalizedSku)) {
+      errors.skuNumber = 'SKU must be in "SK-XXX" format.';
+    }
+
+    const rawPrice = String(formData.price ?? "").trim();
+    if (!rawPrice) {
+      errors.price = "Price is required.";
+    } else if (Number.isNaN(Number(rawPrice)) || Number(rawPrice) < 0) {
+      errors.price = "Price must be a valid number.";
+    }
+
+    const rawStock = String(formData.stock ?? "").trim();
+    if (!rawStock) {
+      errors.stock = "Stock Quantity is required.";
+    } else if (!/^\d+$/.test(rawStock)) {
+      errors.stock = "Stock Quantity must be a non-negative whole number.";
+    }
+
+    return errors;
+  };
+
+  const mapApiErrorsToForm = (error) => {
+    const data = error?.response?.data;
+    const nextFieldErrors = {};
+
+    if (data && typeof data === "object") {
+      const toMessage = (value) =>
+        Array.isArray(value) ? String(value[0] || "") : String(value || "");
+
+      if (data.name) nextFieldErrors.name = toMessage(data.name);
+      if (data.category) nextFieldErrors.category = toMessage(data.category);
+      if (data.sku_number) nextFieldErrors.skuNumber = toMessage(data.sku_number);
+      if (data.price) nextFieldErrors.price = toMessage(data.price);
+      if (data.stock) nextFieldErrors.stock = toMessage(data.stock);
+    }
+
+    return nextFieldErrors;
   };
 
   const handleImageUpload = (e) => {
@@ -71,6 +138,15 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      setFormError("Please fix the highlighted fields and try again.");
+      return;
+    }
+
+    setFieldErrors({});
+    setFormError("");
     setIsLoading(true);
 
     try {
@@ -81,7 +157,9 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
 
       const productData = {
         ...formData,
+        name: String(formData.name || "").trim(),
         category: Number(formData.category),
+        skuNumber: String(formData.skuNumber || "").trim().toUpperCase(),
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock),
         reorderLevel: parseInt(formData.reorderLevel),
@@ -92,6 +170,13 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
 
       await onSave(productData);
     } catch (error) {
+      const apiFieldErrors = mapApiErrorsToForm(error);
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setFieldErrors(apiFieldErrors);
+        setFormError("Please fix the highlighted fields and try again.");
+      } else {
+        setFormError("Failed to save product. Please try again.");
+      }
       console.error("Error saving product:", error);
     } finally {
       setIsLoading(false);
@@ -115,8 +200,13 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="overflow-y-auto p-6 space-y-6" style={{ maxHeight: "calc(90vh - 140px)" }}>
+            {formError && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {formError}
+              </div>
+            )}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
               <label className="text-sm font-semibold text-white mb-3 block">Product Image</label>
               <div className="flex items-start gap-6">
@@ -176,10 +266,14 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      fieldErrors.name
+                        ? "border-red-400/80 focus:ring-red-400"
+                        : "border-white/10 focus:ring-purple-500"
+                    }`}
                     placeholder="Enter product name"
                   />
+                  {fieldErrors.name && <p className="text-xs text-red-300">{fieldErrors.name}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -188,8 +282,11 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
                     name="category"
                     value={formData.category}
                     onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all cursor-pointer"
+                    className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white focus:outline-none focus:ring-2 transition-all cursor-pointer ${
+                      fieldErrors.category
+                        ? "border-red-400/80 focus:ring-red-400"
+                        : "border-white/10 focus:ring-purple-500"
+                    }`}
                   >
                     <option value="" className="bg-slate-800">
                       Select category
@@ -200,6 +297,9 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
                       </option>
                     ))}
                   </select>
+                  {fieldErrors.category && (
+                    <p className="text-xs text-red-300">{fieldErrors.category}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -209,10 +309,16 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
                     name="skuNumber"
                     value={formData.skuNumber}
                     onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      fieldErrors.skuNumber
+                        ? "border-red-400/80 focus:ring-red-400"
+                        : "border-white/10 focus:ring-purple-500"
+                    }`}
                     placeholder="SK-XXX"
                   />
+                  {fieldErrors.skuNumber && (
+                    <p className="text-xs text-red-300">{fieldErrors.skuNumber}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -267,12 +373,16 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
                     name="price"
                     value={formData.price}
                     onChange={handleChange}
-                    required
                     min="0"
                     step="0.01"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      fieldErrors.price
+                        ? "border-red-400/80 focus:ring-red-400"
+                        : "border-white/10 focus:ring-purple-500"
+                    }`}
                     placeholder="0.00"
                   />
+                  {fieldErrors.price && <p className="text-xs text-red-300">{fieldErrors.price}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -282,11 +392,15 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
                     name="stock"
                     value={formData.stock}
                     onChange={handleChange}
-                    required
                     min="0"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      fieldErrors.stock
+                        ? "border-red-400/80 focus:ring-red-400"
+                        : "border-white/10 focus:ring-purple-500"
+                    }`}
                     placeholder="0"
                   />
+                  {fieldErrors.stock && <p className="text-xs text-red-300">{fieldErrors.stock}</p>}
                 </div>
 
                 <div className="space-y-2">

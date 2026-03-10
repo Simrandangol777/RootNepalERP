@@ -15,6 +15,7 @@ import Sales from "./pages/Sales";
 import SalesInvoice from "./pages/SalesInvoice";
 import Purchase from "./pages/Purchase";
 import PurchaseInvoice from "./pages/PurchaseInvoice";
+import Reports from "./pages/Reports";
 // import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -60,7 +61,7 @@ function App() {
       <Route path="/product" element={<Products />} />
       <Route path="/purchase" element={<Purchase />} />
       <Route path="/sales" element={<Sales />} />
-      <Route path="/reports" element={<Dashboard />} />
+      <Route path="/reports" element={<Reports />} />
         
         {/* Catch all route - redirect to home */}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,4 +1,5 @@
 from decimal import Decimal
+import re
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import Category, Product, StockAdjustment, Sale, SaleItem, Supplier, Purchase, PurchaseItem
@@ -52,6 +53,19 @@ class ProductSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        extra_kwargs = {
+            "sku_number": {
+                "error_messages": {
+                    "unique": "SKU Number already exists.",
+                }
+            }
+        }
+
+    def validate_sku_number(self, value):
+        normalized = value.strip().upper()
+        if not re.fullmatch(r"SK-[A-Z0-9]{3}", normalized):
+            raise serializers.ValidationError('SKU must be in "SK-XXX" format.')
+        return normalized
 
 
 class InventoryListSerializer(serializers.ModelSerializer):
@@ -380,3 +394,82 @@ class PurchaseDetailSerializer(serializers.ModelSerializer):
 
     def get_purchased_by_name(self, obj):
         return obj.purchased_by.username if obj.purchased_by else "USERNAME"    
+
+class SummaryReportSerializer(serializers.Serializer):
+    totalRevenue = serializers.FloatField()
+    totalPurchaseCost = serializers.FloatField()
+    grossProfit = serializers.FloatField()
+    totalProducts = serializers.IntegerField()
+    healthyStockItems = serializers.IntegerField()
+    lowStockItems = serializers.IntegerField()
+    outOfStockItems = serializers.IntegerField()
+    inventoryValue = serializers.FloatField()
+    restockSuggestions = serializers.IntegerField()
+    totalPurchaseOrders = serializers.IntegerField()
+    averagePurchaseOrderValue = serializers.FloatField()
+    dateRange = serializers.CharField()
+
+
+class TopSellingProductSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    unitsSold = serializers.IntegerField()
+    revenue = serializers.FloatField()
+
+
+class TopCategorySerializer(serializers.Serializer):
+    name = serializers.CharField()
+    revenue = serializers.FloatField()
+    percentage = serializers.FloatField()
+
+
+class TopSupplierSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    purchaseAmount = serializers.FloatField()
+    orders = serializers.IntegerField()
+
+
+class LowStockItemSerializer(serializers.Serializer):
+    product = serializers.CharField()
+    currentStock = serializers.IntegerField()
+    reorderLevel = serializers.IntegerField()
+    category = serializers.CharField()
+
+
+class OutOfStockItemSerializer(serializers.Serializer):
+    product = serializers.CharField()
+    lastStock = serializers.CharField()
+    category = serializers.CharField()
+
+
+class RestockSuggestionSerializer(serializers.Serializer):
+    product = serializers.CharField()
+    currentStock = serializers.IntegerField()
+    reorderLevel = serializers.IntegerField()
+    predictedDemand = serializers.IntegerField()
+    suggestedQty = serializers.IntegerField()
+    leadTime = serializers.CharField()
+    priority = serializers.CharField()
+
+
+class CategoryStockSerializer(serializers.Serializer):
+    category = serializers.CharField()
+    products = serializers.IntegerField()
+    totalStock = serializers.IntegerField()
+    value = serializers.FloatField()
+
+
+class MonthlySalesSerializer(serializers.Serializer):
+    month = serializers.CharField()
+    sales = serializers.FloatField()
+
+
+class ReportsDashboardSerializer(serializers.Serializer):
+    summaryData = SummaryReportSerializer()
+    topSellingProducts = TopSellingProductSerializer(many=True)
+    topCategories = TopCategorySerializer(many=True)
+    topSuppliers = TopSupplierSerializer(many=True)
+    lowStockItems = LowStockItemSerializer(many=True)
+    outOfStockItems = OutOfStockItemSerializer(many=True)
+    restockSuggestions = RestockSuggestionSerializer(many=True)
+    categoryStock = CategoryStockSerializer(many=True)
+    monthlySales = MonthlySalesSerializer(many=True)

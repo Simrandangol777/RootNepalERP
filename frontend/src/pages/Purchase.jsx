@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import api from '../api/axios';
@@ -42,6 +42,7 @@ const getApiErrorMessage = (error, fallback) => {
 
 const Purchase = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [supplier, setSupplier] = useState('');
   const [newSupplier, setNewSupplier] = useState('');
@@ -232,6 +233,12 @@ const Purchase = () => {
     fetchProducts();
     fetchPurchases();
   }, []);
+
+  useEffect(() => {
+    if (location.state?.scrollToTop) {
+      window.scrollTo(0, 0);
+    }
+  }, [location.state]);
 
   const handleSupplierSelect = (value) => {
     if (!value) {

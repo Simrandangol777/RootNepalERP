@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import ProductDetailModal from "../components/ProductDetailModal.jsx";
 import AddEditProductModal from "../components/AddEditProductModal";
@@ -84,6 +85,8 @@ const buildProductFormData = (productData) => {
 };
 
 const Products = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -119,6 +122,19 @@ const Products = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (!location.state || Object.keys(location.state).length === 0) return;
+
+    if (location.state.scrollToTop) {
+      window.scrollTo(0, 0);
+    }
+    if (location.state.openAddProduct) {
+      handleAddProduct();
+    }
+
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state]);
 
   const categories = useMemo(() => {
     const dynamic = Array.from(
@@ -205,10 +221,6 @@ const Products = () => {
       setIsAddEditModalOpen(false);
       setEditingProduct(null);
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: getApiErrorMessage(error, "Failed to save product."),
-      });
       throw error;
     }
   };

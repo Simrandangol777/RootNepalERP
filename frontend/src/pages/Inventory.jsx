@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import StockAdjustmentModal from "../components/StockAdjustmentModal";
 import api from "../api/axios";
@@ -45,6 +46,8 @@ const getApiErrorMessage = (error, fallback) => {
 };
 
 const Inventory = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
   const [adjustingProduct, setAdjustingProduct] = useState(null);
@@ -74,6 +77,25 @@ const Inventory = () => {
   useEffect(() => {
     fetchInventory();
   }, []);
+
+  useEffect(() => {
+    if (!location.state || Object.keys(location.state).length === 0) return;
+
+    if (location.state.scrollToTop) {
+      window.scrollTo(0, 0);
+    }
+
+    if (location.state.openAdjustStock && !isFetching) {
+      if (inventory.length > 0) {
+        setAdjustingProduct(inventory[0]);
+        setIsAdjustModalOpen(true);
+      } else {
+        setMessage({ type: "error", text: "No inventory items available to adjust." });
+      }
+    }
+
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, isFetching, inventory.length]);
 
   const handleAdjustStock = (product) => {
     setAdjustingProduct(product);

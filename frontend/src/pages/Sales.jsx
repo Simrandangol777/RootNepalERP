@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import api from '../api/axios';
@@ -51,6 +51,7 @@ const getApiErrorMessage = (error, fallback) => {
 
 const Sales = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const storedUser = getStoredUser();
 
   const [products, setProducts] = useState([]);
@@ -155,6 +156,12 @@ const Sales = () => {
     fetchProducts();
     fetchSalesHistory();
   }, []);
+
+  useEffect(() => {
+    if (location.state?.scrollToTop) {
+      window.scrollTo(0, 0);
+    }
+  }, [location.state]);
 
   const addSaleItem = () => {
     setSaleItems((prev) => [...prev, createEmptySaleItem()]);
