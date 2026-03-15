@@ -9,23 +9,74 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from .models import Category, Product, StockAdjustment, Sale, SaleItem, Supplier, Purchase, PurchaseItem
 from .serializers import (CategorySerializer, ProductSerializer, InventoryListSerializer, StockAdjustmentSerializer, SaleCreateSerializer, SaleListSerializer, SaleDetailSerializer, 
-    SupplierSerializer, PurchaseCreateSerializer, PurchaseListSerializer, PurchaseDetailSerializer,)
+    SupplierSerializer, PurchaseCreateSerializer, PurchaseListSerializer, PurchaseDetailSerializer, PurchaseUpdateSerializer,)
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all().order_by("-updated_at")
+    queryset = Category.objects.select_related("created_by", "updated_by").all().order_by("-updated_at")
     serializer_class = CategorySerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ["name", "description"]
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        user = self.request.user if self.request.user.is_authenticated else None
+        serializer.save(created_by=user, updated_by=user)
+
+    def perform_update(self, serializer):
+        user = self.request.user if self.request.user.is_authenticated else None
+        serializer.save(updated_by=user)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.created_by and instance.created_by != request.user:
+            return Response(
+                {"message": "You can only delete categories you created."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            self.perform_destroy(instance)
+        except ProtectedError:
+            return Response(
+                {"message": "Cannot delete category because products are still assigned to it."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.select_related("category").all().order_by("-created_at")
+    queryset = Product.objects.select_related("category", "created_by", "updated_by").all().order_by("-created_at")
     serializer_class = ProductSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ["name", "sku_number"]
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        user = self.request.user if self.request.user.is_authenticated else None
+        serializer.save(created_by=user, updated_by=user)
+
+    def perform_update(self, serializer):
+        user = self.request.user if self.request.user.is_authenticated else None
+        serializer.save(updated_by=user)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.created_by and instance.created_by != request.user:
+            return Response(
+                {"message": "You can only delete products you created."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            self.perform_destroy(instance)
+        except ProtectedError:
+            return Response(
+                {"message": "Cannot delete product because it is referenced in sales or purchases."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class InventoryListView(APIView):
@@ -223,6 +274,12 @@ class PurchaseListCreateView(APIView):
 
         supplier_id = data.get("supplier")
         new_supplier_name = (data.get("newSupplier") or "").strip()
+        new_supplier_email = (data.get("newSupplierEmail") or "").strip()
+        new_supplier_phone = (data.get("newSupplierPhone") or "").strip()
+        new_supplier_company = (data.get("newSupplierCompany") or "").strip()
+        new_supplier_address = (data.get("newSupplierAddress") or "").strip()
+        new_supplier_lead_time = data.get("newSupplierLeadTimeDays") or 0
+        new_supplier_min_order = data.get("newSupplierMinimumOrderQuantity") or 0
 
         if supplier_id:
             try:
@@ -230,7 +287,37 @@ class PurchaseListCreateView(APIView):
             except Supplier.DoesNotExist:
                 return Response({"supplier": "Supplier not found."}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            supplier, _ = Supplier.objects.get_or_create(name=new_supplier_name)
+            supplier, created = Supplier.objects.get_or_create(
+                name=new_supplier_name,
+                defaults={
+                    "email": new_supplier_email,
+                    "phone": new_supplier_phone,
+                    "company": new_supplier_company,
+                    "address": new_supplier_address,
+                    "lead_time_days": new_supplier_lead_time,
+                    "minimum_order_quantity": new_supplier_min_order,
+                },
+            )
+
+            if not created:
+                updates = {}
+                if new_supplier_email and not supplier.email:
+                    updates["email"] = new_supplier_email
+                if new_supplier_phone and not supplier.phone:
+                    updates["phone"] = new_supplier_phone
+                if new_supplier_company and not supplier.company:
+                    updates["company"] = new_supplier_company
+                if new_supplier_address and not supplier.address:
+                    updates["address"] = new_supplier_address
+                if new_supplier_lead_time and not supplier.lead_time_days:
+                    updates["lead_time_days"] = new_supplier_lead_time
+                if new_supplier_min_order and not supplier.minimum_order_quantity:
+                    updates["minimum_order_quantity"] = new_supplier_min_order
+
+                if updates:
+                    for key, value in updates.items():
+                        setattr(supplier, key, value)
+                    supplier.save(update_fields=list(updates.keys()))
 
         purchase = Purchase.objects.create(
             supplier=supplier,
@@ -314,6 +401,58 @@ class PurchaseDetailView(APIView):
 
         serializer = PurchaseDetailSerializer(purchase)
         return Response(serializer.data)
+
+    @transaction.atomic
+    def patch(self, request, pk):
+        try:
+            purchase = (
+                Purchase.objects.select_related("supplier", "purchased_by")
+                .prefetch_related("items__product")
+                .get(pk=pk)
+            )
+        except Purchase.DoesNotExist:
+            return Response({"message": "Purchase not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if purchase.status != "Pending":
+            return Response(
+                {"message": "Only pending purchases can be updated."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = PurchaseUpdateSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        new_payment_method = data.get("paymentMethod", purchase.payment_method)
+        new_status = data.get("purchaseStatus", purchase.status)
+
+        if new_status == "Received":
+            for item in purchase.items.all():
+                product = item.product
+                product.stock += item.quantity
+                product.save(update_fields=["stock"])
+
+                StockAdjustment.objects.create(
+                    product=product,
+                    adjustment_type="increase",
+                    quantity=item.quantity,
+                    reason="Purchase received",
+                    notes=f"Auto stock increase from purchase {purchase.invoice_number}",
+                )
+
+        purchase.payment_method = new_payment_method
+        purchase.status = new_status
+        purchase.save(update_fields=["payment_method", "status"])
+
+        detail_serializer = PurchaseDetailSerializer(purchase)
+        return Response(
+            {
+                "message": "Purchase updated successfully.",
+                "purchase": detail_serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class PurchaseDeleteView(APIView):

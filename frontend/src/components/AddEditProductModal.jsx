@@ -9,6 +9,7 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
   const [imageFile, setImageFile] = useState(null);
   const [removeImage, setRemoveImage] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [formError, setFormError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const fileInputRef = useRef(null);
@@ -18,9 +19,17 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
     description: product?.description || "",
     category: product?.category || "",
     skuNumber: product?.skuNumber || "",
-    price: product?.price || 0,
+    costPrice: product?.costPrice ?? 0,
+    sellingPrice: product?.sellingPrice ?? product?.price ?? 0,
     stock: product?.stock || 0,
-    supplier: product?.supplier || "",
+    supplier: product?.supplier ? String(product.supplier) : "",
+    newSupplierName: "",
+    supplierEmail: product?.supplierEmail || "",
+    supplierPhone: product?.supplierPhone || "",
+    supplierCompany: product?.supplierCompany || "",
+    supplierAddress: product?.supplierAddress || "",
+    supplierLeadTimeDays: product?.supplierLeadTimeDays ?? "",
+    supplierMinimumOrderQuantity: product?.supplierMinimumOrderQuantity ?? "",
     reorderLevel: product?.reorderLevel || 10,
     tags: product?.tags?.join(", ") || "",
     status: product?.status || "Active",
@@ -39,7 +48,20 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
       }
     };
 
+    const fetchSuppliers = async () => {
+      try {
+        const res = await api.get("suppliers/");
+        const activeSuppliers = Array.isArray(res.data)
+          ? res.data.filter((supplier) => supplier.is_active)
+          : [];
+        setSuppliers(activeSuppliers);
+      } catch (error) {
+        console.error("Failed to load suppliers:", error);
+      }
+    };
+
     fetchCategories();
+    fetchSuppliers();
   }, []);
 
   const handleChange = (e) => {
@@ -54,6 +76,59 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
 
     if (fieldErrors[name]) {
       setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+    if (formError) {
+      setFormError("");
+    }
+  };
+
+  const handleSupplierChange = (e) => {
+    const { value } = e.target;
+    const selectedSupplier = suppliers.find((supplier) => String(supplier.id) === value);
+
+    setFormData((prev) => ({
+      ...prev,
+      supplier: value,
+      newSupplierName: "",
+      supplierEmail: selectedSupplier?.email || "",
+      supplierPhone: selectedSupplier?.phone || "",
+      supplierCompany: selectedSupplier?.company || "",
+      supplierAddress: selectedSupplier?.address || "",
+      supplierLeadTimeDays: selectedSupplier?.lead_time_days ?? "",
+      supplierMinimumOrderQuantity: selectedSupplier?.minimum_order_quantity ?? "",
+    }));
+
+    if (fieldErrors.supplier) {
+      setFieldErrors((prev) => ({ ...prev, supplier: "" }));
+    }
+    if (formError) {
+      setFormError("");
+    }
+  };
+
+  const handleNewSupplierNameChange = (e) => {
+    const { value } = e.target;
+    setFormData((prev) => {
+      const switchingFromExisting = Boolean(prev.supplier);
+      return {
+        ...prev,
+        newSupplierName: value,
+        supplier: "",
+        ...(switchingFromExisting
+          ? {
+              supplierEmail: "",
+              supplierPhone: "",
+              supplierCompany: "",
+              supplierAddress: "",
+              supplierLeadTimeDays: "",
+              supplierMinimumOrderQuantity: "",
+            }
+          : null),
+      };
+    });
+
+    if (fieldErrors.newSupplierName) {
+      setFieldErrors((prev) => ({ ...prev, newSupplierName: "" }));
     }
     if (formError) {
       setFormError("");
@@ -78,11 +153,20 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
       errors.skuNumber = 'SKU must be in "SK-XXX" format.';
     }
 
-    const rawPrice = String(formData.price ?? "").trim();
-    if (!rawPrice) {
-      errors.price = "Price is required.";
-    } else if (Number.isNaN(Number(rawPrice)) || Number(rawPrice) < 0) {
-      errors.price = "Price must be a valid number.";
+    const rawCostPrice = String(formData.costPrice ?? "").trim();
+    if (!rawCostPrice) {
+      errors.costPrice = "Cost price is required.";
+    } else if (Number.isNaN(Number(rawCostPrice)) || Number(rawCostPrice) < 0) {
+      errors.costPrice = "Cost price must be a valid number.";
+    }
+
+    const rawSellingPrice = String(formData.sellingPrice ?? "").trim();
+    if (!rawSellingPrice) {
+      errors.sellingPrice = "Selling price is required.";
+    } else if (Number.isNaN(Number(rawSellingPrice)) || Number(rawSellingPrice) < 0) {
+      errors.sellingPrice = "Selling price must be a valid number.";
+    } else if (!errors.costPrice && Number(rawSellingPrice) < Number(rawCostPrice)) {
+      errors.sellingPrice = "Selling price cannot be lower than cost price.";
     }
 
     const rawStock = String(formData.stock ?? "").trim();
@@ -90,6 +174,33 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
       errors.stock = "Stock Quantity is required.";
     } else if (!/^\d+$/.test(rawStock)) {
       errors.stock = "Stock Quantity must be a non-negative whole number.";
+    }
+
+    const rawLeadTime = String(formData.supplierLeadTimeDays ?? "").trim();
+    if (rawLeadTime && !/^\d+$/.test(rawLeadTime)) {
+      errors.supplierLeadTimeDays = "Lead time must be a non-negative whole number.";
+    }
+
+    const rawMinOrder = String(formData.supplierMinimumOrderQuantity ?? "").trim();
+    if (rawMinOrder && !/^\d+$/.test(rawMinOrder)) {
+      errors.supplierMinimumOrderQuantity = "Minimum order must be a non-negative whole number.";
+    }
+
+    const hasNewSupplier = String(formData.newSupplierName || "").trim();
+    const hasSupplierDetails =
+      String(formData.supplierEmail || "").trim() ||
+      String(formData.supplierPhone || "").trim() ||
+      String(formData.supplierCompany || "").trim() ||
+      String(formData.supplierAddress || "").trim() ||
+      rawLeadTime ||
+      rawMinOrder;
+
+    if (hasSupplierDetails && !String(formData.supplier || "").trim() && !hasNewSupplier) {
+      errors.supplier = "Select a supplier or enter a new supplier to save details.";
+    }
+
+    if (hasNewSupplier && String(formData.supplier || "").trim()) {
+      errors.supplier = "Choose either a supplier or add a new one, not both.";
     }
 
     return errors;
@@ -106,8 +217,21 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
       if (data.name) nextFieldErrors.name = toMessage(data.name);
       if (data.category) nextFieldErrors.category = toMessage(data.category);
       if (data.sku_number) nextFieldErrors.skuNumber = toMessage(data.sku_number);
-      if (data.price) nextFieldErrors.price = toMessage(data.price);
+      if (data.price) nextFieldErrors.sellingPrice = toMessage(data.price);
+      if (data.cost_price) nextFieldErrors.costPrice = toMessage(data.cost_price);
+      if (data.selling_price) nextFieldErrors.sellingPrice = toMessage(data.selling_price);
       if (data.stock) nextFieldErrors.stock = toMessage(data.stock);
+      if (data.supplier) nextFieldErrors.supplier = toMessage(data.supplier);
+      if (data.supplierEmail) nextFieldErrors.supplierEmail = toMessage(data.supplierEmail);
+      if (data.supplierPhone) nextFieldErrors.supplierPhone = toMessage(data.supplierPhone);
+      if (data.supplierCompany) nextFieldErrors.supplierCompany = toMessage(data.supplierCompany);
+      if (data.supplierAddress) nextFieldErrors.supplierAddress = toMessage(data.supplierAddress);
+      if (data.supplierLeadTimeDays) {
+        nextFieldErrors.supplierLeadTimeDays = toMessage(data.supplierLeadTimeDays);
+      }
+      if (data.supplierMinimumOrderQuantity) {
+        nextFieldErrors.supplierMinimumOrderQuantity = toMessage(data.supplierMinimumOrderQuantity);
+      }
     }
 
     return nextFieldErrors;
@@ -158,10 +282,19 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
       const productData = {
         ...formData,
         name: String(formData.name || "").trim(),
+        newSupplierName: String(formData.newSupplierName || "").trim(),
         category: Number(formData.category),
         skuNumber: String(formData.skuNumber || "").trim().toUpperCase(),
-        price: parseFloat(formData.price),
+        price: parseFloat(formData.sellingPrice),
+        costPrice: parseFloat(formData.costPrice),
+        sellingPrice: parseFloat(formData.sellingPrice),
         stock: parseInt(formData.stock),
+        supplierLeadTimeDays:
+          formData.supplierLeadTimeDays === "" ? "" : parseInt(formData.supplierLeadTimeDays),
+        supplierMinimumOrderQuantity:
+          formData.supplierMinimumOrderQuantity === ""
+            ? ""
+            : parseInt(formData.supplierMinimumOrderQuantity),
         reorderLevel: parseInt(formData.reorderLevel),
         tags: tagsArray,
         imageFile,
@@ -367,22 +500,45 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
 
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-white">Price (Rs.) *</label>
+                  <label className="text-sm font-semibold text-white">Cost Price (Rs.) *</label>
                   <input
                     type="number"
-                    name="price"
-                    value={formData.price}
+                    name="costPrice"
+                    value={formData.costPrice}
                     onChange={handleChange}
                     min="0"
                     step="0.01"
                     className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
-                      fieldErrors.price
+                      fieldErrors.costPrice
                         ? "border-red-400/80 focus:ring-red-400"
                         : "border-white/10 focus:ring-purple-500"
                     }`}
                     placeholder="0.00"
                   />
-                  {fieldErrors.price && <p className="text-xs text-red-300">{fieldErrors.price}</p>}
+                  {fieldErrors.costPrice && (
+                    <p className="text-xs text-red-300">{fieldErrors.costPrice}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-white">Selling Price (Rs.) *</label>
+                  <input
+                    type="number"
+                    name="sellingPrice"
+                    value={formData.sellingPrice}
+                    onChange={handleChange}
+                    min="0"
+                    step="0.01"
+                    className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      fieldErrors.sellingPrice
+                        ? "border-red-400/80 focus:ring-red-400"
+                        : "border-white/10 focus:ring-purple-500"
+                    }`}
+                    placeholder="0.00"
+                  />
+                  {fieldErrors.sellingPrice && (
+                    <p className="text-xs text-red-300">{fieldErrors.sellingPrice}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -402,7 +558,9 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
                   />
                   {fieldErrors.stock && <p className="text-xs text-red-300">{fieldErrors.stock}</p>}
                 </div>
+              </div>
 
+              <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-white">Reorder Level</label>
                   <input
@@ -421,17 +579,167 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
               <h3 className="text-lg font-semibold text-white mb-4">Supplier Information</h3>
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-white">Supplier Name</label>
-                <input
-                  type="text"
-                  name="supplier"
-                  value={formData.supplier}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  placeholder="Enter supplier name"
-                />
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-white">Select Supplier</label>
+                  <select
+                    name="supplier"
+                    value={formData.supplier}
+                    onChange={handleSupplierChange}
+                    className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      fieldErrors.supplier
+                        ? "border-red-400/80 focus:ring-red-400"
+                        : "border-white/10 focus:ring-purple-500"
+                    }`}
+                  >
+                    <option value="" className="bg-slate-800">Select supplier</option>
+                    {suppliers.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id} className="bg-slate-800">
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-white">Or Add New Supplier</label>
+                  <input
+                    type="text"
+                    name="newSupplierName"
+                    value={formData.newSupplierName}
+                    onChange={handleNewSupplierNameChange}
+                    className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      fieldErrors.newSupplierName
+                        ? "border-red-400/80 focus:ring-red-400"
+                        : "border-white/10 focus:ring-purple-500"
+                    }`}
+                    placeholder="Enter supplier name"
+                  />
+                  {fieldErrors.supplier && (
+                    <p className="text-xs text-red-300">{fieldErrors.supplier}</p>
+                  )}
+                </div>
               </div>
+
+              {(formData.supplier || formData.newSupplierName) && (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-white">Contact Email</label>
+                    <input
+                      type="email"
+                      name="supplierEmail"
+                      value={formData.supplierEmail}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                        fieldErrors.supplierEmail
+                          ? "border-red-400/80 focus:ring-red-400"
+                          : "border-white/10 focus:ring-purple-500"
+                      }`}
+                      placeholder="supplier@example.com"
+                    />
+                    {fieldErrors.supplierEmail && (
+                      <p className="text-xs text-red-300">{fieldErrors.supplierEmail}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-white">Contact Phone</label>
+                    <input
+                      type="text"
+                      name="supplierPhone"
+                      value={formData.supplierPhone}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                        fieldErrors.supplierPhone
+                          ? "border-red-400/80 focus:ring-red-400"
+                          : "border-white/10 focus:ring-purple-500"
+                      }`}
+                      placeholder="98XXXXXXXX"
+                    />
+                    {fieldErrors.supplierPhone && (
+                      <p className="text-xs text-red-300">{fieldErrors.supplierPhone}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-white">Company</label>
+                    <input
+                      type="text"
+                      name="supplierCompany"
+                      value={formData.supplierCompany}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                        fieldErrors.supplierCompany
+                          ? "border-red-400/80 focus:ring-red-400"
+                          : "border-white/10 focus:ring-purple-500"
+                      }`}
+                      placeholder="Company name"
+                    />
+                    {fieldErrors.supplierCompany && (
+                      <p className="text-xs text-red-300">{fieldErrors.supplierCompany}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-white">Address</label>
+                    <input
+                      type="text"
+                      name="supplierAddress"
+                      value={formData.supplierAddress}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                        fieldErrors.supplierAddress
+                          ? "border-red-400/80 focus:ring-red-400"
+                          : "border-white/10 focus:ring-purple-500"
+                      }`}
+                      placeholder="Supplier address"
+                    />
+                    {fieldErrors.supplierAddress && (
+                      <p className="text-xs text-red-300">{fieldErrors.supplierAddress}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-white">Lead Time (days)</label>
+                    <input
+                      type="number"
+                      name="supplierLeadTimeDays"
+                      value={formData.supplierLeadTimeDays}
+                      onChange={handleChange}
+                      min="0"
+                      className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                        fieldErrors.supplierLeadTimeDays
+                          ? "border-red-400/80 focus:ring-red-400"
+                          : "border-white/10 focus:ring-purple-500"
+                      }`}
+                      placeholder="0"
+                    />
+                    {fieldErrors.supplierLeadTimeDays && (
+                      <p className="text-xs text-red-300">{fieldErrors.supplierLeadTimeDays}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-white">Minimum Order Quantity</label>
+                    <input
+                      type="number"
+                      name="supplierMinimumOrderQuantity"
+                      value={formData.supplierMinimumOrderQuantity}
+                      onChange={handleChange}
+                      min="0"
+                      className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                        fieldErrors.supplierMinimumOrderQuantity
+                          ? "border-red-400/80 focus:ring-red-400"
+                          : "border-white/10 focus:ring-purple-500"
+                      }`}
+                      placeholder="0"
+                    />
+                    {fieldErrors.supplierMinimumOrderQuantity && (
+                      <p className="text-xs text-red-300">{fieldErrors.supplierMinimumOrderQuantity}</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

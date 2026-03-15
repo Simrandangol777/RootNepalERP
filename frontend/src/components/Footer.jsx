@@ -108,10 +108,10 @@ const Footer = ({ theme = "dark" }) => {
             </p>
             <div className={`mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm ${styles.meta}`}>
               <a
-                href="mailto:support@rootnepalerp.com"
+                href="mailto:rootnepalhandicrafts7@gmail.com"
                 className={`${styles.link} transition-colors`}
               >
-                support@rootnepalerp.com
+                rootnepalhandicrafts7@gmail.com
               </a>
               <span>Sun - Sat, 9:00 AM - 9:00 PM NPT</span>
               <span>Thamel, Kathmandu, Nepal</span>

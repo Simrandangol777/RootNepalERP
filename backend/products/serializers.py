@@ -1,6 +1,7 @@
 from decimal import Decimal
 import re
 from django.contrib.auth.models import User
+from django.utils import timezone
 from rest_framework import serializers
 from .models import Category, Product, StockAdjustment, Sale, SaleItem, Supplier, Purchase, PurchaseItem
 
@@ -25,14 +26,30 @@ class CategorySerializer(serializers.ModelSerializer):
         ]
 
     def get_updatedDate(self, obj):
-        return obj.updated_at.strftime("%m/%d/%Y") if obj.updated_at else ""
+        return obj.updated_at.isoformat() if obj.updated_at else ""
 
     def get_updatedBy(self, obj):
-        return "username"
+        user = obj.updated_by or obj.created_by
+        return user.username if user else ""
 
 
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
+    supplier_name = serializers.CharField(source="supplier.name", read_only=True)
+    supplier_email = serializers.CharField(source="supplier.email", read_only=True)
+    supplier_phone = serializers.CharField(source="supplier.phone", read_only=True)
+    supplier_company = serializers.CharField(source="supplier.company", read_only=True)
+    supplier_address = serializers.CharField(source="supplier.address", read_only=True)
+    supplier_lead_time_days = serializers.IntegerField(source="supplier.lead_time_days", read_only=True)
+    supplier_minimum_order_quantity = serializers.IntegerField(source="supplier.minimum_order_quantity", read_only=True)
+    supplierEmail = serializers.EmailField(write_only=True, required=False, allow_blank=True)
+    supplierPhone = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    supplierCompany = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    supplierAddress = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    supplierLeadTimeDays = serializers.IntegerField(write_only=True, required=False, min_value=0)
+    supplierMinimumOrderQuantity = serializers.IntegerField(write_only=True, required=False, min_value=0)
+    updatedDate = serializers.SerializerMethodField()
+    updatedBy = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -44,14 +61,31 @@ class ProductSerializer(serializers.ModelSerializer):
             "category_name",
             "sku_number",
             "price",
+            "cost_price",
+            "selling_price",
             "stock",
             "reorder_level",
             "supplier",
+            "supplier_name",
+            "supplier_email",
+            "supplier_phone",
+            "supplier_company",
+            "supplier_address",
+            "supplier_lead_time_days",
+            "supplier_minimum_order_quantity",
+            "supplierEmail",
+            "supplierPhone",
+            "supplierCompany",
+            "supplierAddress",
+            "supplierLeadTimeDays",
+            "supplierMinimumOrderQuantity",
             "image",
             "tags",
             "status",
             "created_at",
             "updated_at",
+            "updatedDate",
+            "updatedBy",
         ]
         extra_kwargs = {
             "sku_number": {
@@ -61,11 +95,72 @@ class ProductSerializer(serializers.ModelSerializer):
             }
         }
 
+    def validate(self, attrs):
+        cost = attrs.get("cost_price")
+        selling = attrs.get("selling_price", attrs.get("price"))
+
+        if "price" in attrs and "selling_price" not in attrs:
+            attrs["selling_price"] = attrs["price"]
+        if "selling_price" in attrs and "price" not in attrs:
+            attrs["price"] = attrs["selling_price"]
+
+        if cost is not None and selling is not None:
+            if cost < 0 or selling < 0:
+                raise serializers.ValidationError("Prices must be non-negative.")
+            if selling < cost:
+                raise serializers.ValidationError({"selling_price": "Selling price cannot be lower than cost price."})
+
+        return attrs
+
+    def get_updatedDate(self, obj):
+        return obj.updated_at.isoformat() if obj.updated_at else ""
+
+    def get_updatedBy(self, obj):
+        user = obj.updated_by or obj.created_by
+        return user.username if user else ""
+
     def validate_sku_number(self, value):
         normalized = value.strip().upper()
         if not re.fullmatch(r"SK-[A-Z0-9]{3}", normalized):
             raise serializers.ValidationError('SKU must be in "SK-XXX" format.')
         return normalized
+
+    def _pop_supplier_details(self, validated_data):
+        return {
+            "email": validated_data.pop("supplierEmail", None),
+            "phone": validated_data.pop("supplierPhone", None),
+            "company": validated_data.pop("supplierCompany", None),
+            "address": validated_data.pop("supplierAddress", None),
+            "lead_time_days": validated_data.pop("supplierLeadTimeDays", None),
+            "minimum_order_quantity": validated_data.pop("supplierMinimumOrderQuantity", None),
+        }
+
+    def _apply_supplier_details(self, supplier, details):
+        if not supplier:
+            return
+        updates = {}
+        for field, value in details.items():
+            if value is None:
+                continue
+            if isinstance(value, str) and value.strip() == "":
+                continue
+            updates[field] = value
+        if updates:
+            for field, value in updates.items():
+                setattr(supplier, field, value)
+            supplier.save(update_fields=list(updates.keys()))
+
+    def create(self, validated_data):
+        supplier_details = self._pop_supplier_details(validated_data)
+        product = super().create(validated_data)
+        self._apply_supplier_details(product.supplier, supplier_details)
+        return product
+
+    def update(self, instance, validated_data):
+        supplier_details = self._pop_supplier_details(validated_data)
+        product = super().update(instance, validated_data)
+        self._apply_supplier_details(product.supplier, supplier_details)
+        return product
 
 
 class InventoryListSerializer(serializers.ModelSerializer):
@@ -193,10 +288,10 @@ class SaleListSerializer(serializers.ModelSerializer):
         fields = ["id", "date", "time", "products", "soldBy", "paymentMethod", "total", "status"]
 
     def get_date(self, obj):
-        return obj.created_at.strftime("%m/%d/%Y")
+        return timezone.localtime(obj.created_at).strftime("%m/%d/%Y")
 
     def get_time(self, obj):
-        return obj.created_at.strftime("%I:%M %p")
+        return timezone.localtime(obj.created_at).strftime("%I:%M %p")
 
     def get_soldBy(self, obj):
         return obj.sold_by.username.upper() if obj.sold_by else "USERNAME"
@@ -242,10 +337,10 @@ class SaleDetailSerializer(serializers.ModelSerializer):
         return f"INV-{obj.id:04d}"
 
     def get_date(self, obj):
-        return obj.created_at.strftime("%m/%d/%Y")
+        return timezone.localtime(obj.created_at).strftime("%m/%d/%Y")
 
     def get_time(self, obj):
-        return obj.created_at.strftime("%I:%M %p")
+        return timezone.localtime(obj.created_at).strftime("%I:%M %p")
 
     def get_sold_by_name(self, obj):
         return obj.sold_by.username if obj.sold_by else "USERNAME"    
@@ -260,6 +355,8 @@ class SupplierSerializer(serializers.ModelSerializer):
             "email",
             "company",
             "address",
+            "lead_time_days",
+            "minimum_order_quantity",
             "is_active",
             "created_at",
         ]
@@ -286,6 +383,12 @@ class PurchaseItemWriteSerializer(serializers.Serializer):
 class PurchaseCreateSerializer(serializers.Serializer):
     supplier = serializers.IntegerField(required=False)
     newSupplier = serializers.CharField(required=False, allow_blank=True)
+    newSupplierEmail = serializers.EmailField(required=False, allow_blank=True)
+    newSupplierPhone = serializers.CharField(required=False, allow_blank=True)
+    newSupplierCompany = serializers.CharField(required=False, allow_blank=True)
+    newSupplierAddress = serializers.CharField(required=False, allow_blank=True)
+    newSupplierLeadTimeDays = serializers.IntegerField(required=False, default=0, min_value=0)
+    newSupplierMinimumOrderQuantity = serializers.IntegerField(required=False, default=0, min_value=0)
     purchaseDate = serializers.DateField()
     invoiceNumber = serializers.CharField(max_length=100)
     paymentMethod = serializers.ChoiceField(choices=["Cash", "Bank Transfer", "Credit"])
@@ -332,6 +435,14 @@ class PurchaseItemReadSerializer(serializers.ModelSerializer):
         ]
 
 
+class PurchaseHistoryItemSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="product.name", read_only=True)
+
+    class Meta:
+        model = PurchaseItem
+        fields = ["id", "name", "quantity"]
+
+
 class PurchaseListSerializer(serializers.ModelSerializer):
     supplier = serializers.CharField(source="supplier.name")
     purchasedBy = serializers.SerializerMethodField()
@@ -339,6 +450,7 @@ class PurchaseListSerializer(serializers.ModelSerializer):
     total = serializers.SerializerMethodField()
     date = serializers.SerializerMethodField()
     time = serializers.SerializerMethodField()
+    products = PurchaseHistoryItemSerializer(source="items", many=True)
 
     class Meta:
         model = Purchase
@@ -348,6 +460,7 @@ class PurchaseListSerializer(serializers.ModelSerializer):
             "time",
             "invoice_number",
             "supplier",
+            "products",
             "purchasedBy",
             "paymentMethod",
             "total",
@@ -361,10 +474,10 @@ class PurchaseListSerializer(serializers.ModelSerializer):
         return f"Rs. {obj.grand_total}"
 
     def get_date(self, obj):
-        return obj.created_at.strftime("%m/%d/%Y")
+        return timezone.localtime(obj.created_at).strftime("%m/%d/%Y")
 
     def get_time(self, obj):
-        return obj.created_at.strftime("%I:%M %p")
+        return timezone.localtime(obj.created_at).strftime("%I:%M %p")
 
 
 class PurchaseDetailSerializer(serializers.ModelSerializer):
@@ -393,7 +506,23 @@ class PurchaseDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_purchased_by_name(self, obj):
-        return obj.purchased_by.username if obj.purchased_by else "USERNAME"    
+        return obj.purchased_by.username if obj.purchased_by else "USERNAME"
+
+
+class PurchaseUpdateSerializer(serializers.Serializer):
+    paymentMethod = serializers.ChoiceField(
+        choices=["Cash", "Bank Transfer", "Credit"],
+        required=False,
+    )
+    purchaseStatus = serializers.ChoiceField(
+        choices=["Pending", "Received", "Cancelled"],
+        required=False,
+    )
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError("Provide at least one field to update.")
+        return attrs
 
 class SummaryReportSerializer(serializers.Serializer):
     totalRevenue = serializers.FloatField()

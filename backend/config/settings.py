@@ -46,9 +46,8 @@ INSTALLED_APPS = [
     "corsheaders",
     "accounts",
     "products",
-    "catalog",
-    "inventory",
-    "transactions",
+    "dashboard",
+    "ml",
 ]
 
 MIDDLEWARE = [

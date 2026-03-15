@@ -38,6 +38,9 @@ urlpatterns = [
 
     # Dashboard routes
     path("api/dashboard/", include("dashboard.urls")),
+
+    # ML routes
+    path("api/ml/", include("ml.urls")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

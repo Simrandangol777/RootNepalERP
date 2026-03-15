@@ -21,14 +21,35 @@ const toMediaUrl = (imagePath) => {
     : `${API_ORIGIN}/${imagePath}`;
 };
 
+const formatDateTime = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const buildUpdatedLabel = (updatedAt, updatedBy) => {
+  const formatted = formatDateTime(updatedAt);
+  if (formatted && updatedBy) return `Updated ${formatted} by ${updatedBy}`;
+  if (formatted) return `Updated ${formatted}`;
+  if (updatedBy) return `Updated by ${updatedBy}`;
+  return "";
+};
+
 const mapApiCategoryToUi = (category) => ({
   id: category.id,
   name: category.name || "",
   description: category.description || "",
   image: toMediaUrl(category.image),
   status: category.status || "Active",
-  updatedDate: category.updatedDate || "",
-  updatedBy: category.updatedBy || "username",
+  updatedAt: category.updated_at || category.updatedDate || "",
+  updatedBy: category.updatedBy || "",
   productCount: Number(category.product_count || 0),
 });
 
@@ -290,7 +311,9 @@ const Categories = () => {
                     </td>
                   </tr>
                 ) : (
-                  paginatedCategories.map((category) => (
+                  paginatedCategories.map((category) => {
+                    const updatedLabel = buildUpdatedLabel(category.updatedAt, category.updatedBy);
+                    return (
                     <tr key={category.id} className="hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4">
                         <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
@@ -305,9 +328,11 @@ const Categories = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-white font-semibold text-base mb-1">{category.name}</div>
-                        <div className="text-white/50 text-xs">
-                          Updated {category.updatedDate} by {category.updatedBy}
-                        </div>
+                        {updatedLabel && (
+                          <div className="text-white/50 text-xs">
+                            {updatedLabel}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-white/70">{category.description}</td>
                       <td className="px-6 py-4">
@@ -346,7 +371,7 @@ const Categories = () => {
                         </div>
                       </td>
                     </tr>
-                  ))
+                  )})
                 )}
               </tbody>
             </table>

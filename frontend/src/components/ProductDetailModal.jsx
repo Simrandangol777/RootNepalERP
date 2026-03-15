@@ -2,7 +2,8 @@ import { useState } from 'react';
 
 const ProductDetailModal = ({ product, onClose, onEdit }) => {
   const [activeTab, setActiveTab] = useState('details');
-  const productPrice = Number(product?.price || 0);
+  const productPrice = Number(product?.sellingPrice ?? product?.price ?? 0);
+  const productCost = Number(product?.costPrice ?? 0);
   const productTags = Array.isArray(product?.tags)
     ? product.tags
     : String(product?.tags || "")
@@ -54,15 +55,21 @@ const ProductDetailModal = ({ product, onClose, onEdit }) => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                     <div className="text-white/60 text-sm mb-1">Category</div>
-                    <div className="text-white font-semibold">{product.category}</div>
+                    <div className="text-white font-semibold">
+                      {product.categoryName || product.category}
+                    </div>
                   </div>
                   <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                     <div className="text-white/60 text-sm mb-1">SKU Number</div>
                     <div className="text-white font-semibold">{product.skuNumber}</div>
                   </div>
                   <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                    <div className="text-white/60 text-sm mb-1">Price</div>
+                    <div className="text-white/60 text-sm mb-1">Selling Price</div>
                     <div className="text-white font-bold text-2xl">Rs. {productPrice.toFixed(2)}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <div className="text-white/60 text-sm mb-1">Cost Price</div>
+                    <div className="text-white font-bold text-2xl">Rs. {productCost.toFixed(2)}</div>
                   </div>
                   <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                     <div className="text-white/60 text-sm mb-1">Stock</div>
@@ -130,7 +137,9 @@ const ProductDetailModal = ({ product, onClose, onEdit }) => {
                       </div>
                       <div>
                         <div className="text-white/60 text-sm mb-1">Category</div>
-                        <div className="text-white font-medium">{product.category}</div>
+                        <div className="text-white font-medium">
+                          {product.categoryName || product.category}
+                        </div>
                       </div>
                       <div>
                         <div className="text-white/60 text-sm mb-1">SKU Number</div>
@@ -143,8 +152,12 @@ const ProductDetailModal = ({ product, onClose, onEdit }) => {
                         </span>
                       </div>
                       <div>
-                        <div className="text-white/60 text-sm mb-1">Price</div>
+                        <div className="text-white/60 text-sm mb-1">Selling Price</div>
                         <div className="text-white font-bold text-xl">Rs. {productPrice.toFixed(2)}</div>
+                      </div>
+                      <div>
+                        <div className="text-white/60 text-sm mb-1">Cost Price</div>
+                        <div className="text-white font-bold text-xl">Rs. {productCost.toFixed(2)}</div>
                       </div>
                       <div>
                         <div className="text-white/60 text-sm mb-1">Tags</div>
@@ -221,7 +234,7 @@ const ProductDetailModal = ({ product, onClose, onEdit }) => {
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <div className="text-white/60 text-sm mb-1">Supplier Name</div>
-                        <div className="text-white font-medium">{product.supplier}</div>
+                        <div className="text-white font-medium">{product.supplierName || "Not set"}</div>
                       </div>
                       <div>
                         <div className="text-white/60 text-sm mb-1">Supplier Status</div>
@@ -231,19 +244,23 @@ const ProductDetailModal = ({ product, onClose, onEdit }) => {
                       </div>
                       <div>
                         <div className="text-white/60 text-sm mb-1">Contact Email</div>
-                        <div className="text-white font-medium">supplier@example.com</div>
+                        <div className="text-white font-medium">{product.supplierEmail || "Not set"}</div>
                       </div>
                       <div>
                         <div className="text-white/60 text-sm mb-1">Contact Phone</div>
-                        <div className="text-white font-medium">+1 (555) 123-4567</div>
+                        <div className="text-white font-medium">{product.supplierPhone || "Not set"}</div>
                       </div>
                       <div>
                         <div className="text-white/60 text-sm mb-1">Lead Time</div>
-                        <div className="text-white font-medium">7-14 days</div>
+                        <div className="text-white font-medium">
+                          {product.supplierLeadTimeDays ? `${product.supplierLeadTimeDays} days` : "Not set"}
+                        </div>
                       </div>
                       <div>
                         <div className="text-white/60 text-sm mb-1">Minimum Order</div>
-                        <div className="text-white font-medium">10 units</div>
+                        <div className="text-white font-medium">
+                          {product.supplierMinimumOrderQuantity || "Not set"}
+                        </div>
                       </div>
                     </div>
                   </div>

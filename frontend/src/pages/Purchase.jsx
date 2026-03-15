@@ -46,10 +46,16 @@ const Purchase = () => {
 
   const [supplier, setSupplier] = useState('');
   const [newSupplier, setNewSupplier] = useState('');
+  const [newSupplierEmail, setNewSupplierEmail] = useState('');
+  const [newSupplierPhone, setNewSupplierPhone] = useState('');
+  const [newSupplierCompany, setNewSupplierCompany] = useState('');
+  const [newSupplierAddress, setNewSupplierAddress] = useState('');
+  const [newSupplierLeadTimeDays, setNewSupplierLeadTimeDays] = useState('');
+  const [newSupplierMinimumOrderQuantity, setNewSupplierMinimumOrderQuantity] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
-  const [purchaseStatus, setPurchaseStatus] = useState('Received');
+  const [purchaseStatus, setPurchaseStatus] = useState('Pending');
   const [notes, setNotes] = useState('');
 
   const [purchaseItems, setPurchaseItems] = useState([createEmptyPurchaseItem()]);
@@ -72,6 +78,8 @@ const Purchase = () => {
   const [isFetchingProducts, setIsFetchingProducts] = useState(true);
   const [isFetchingPurchases, setIsFetchingPurchases] = useState(true);
   const [isRecordingPurchase, setIsRecordingPurchase] = useState(false);
+  const [purchaseEdits, setPurchaseEdits] = useState({});
+  const [isUpdatingPurchaseId, setIsUpdatingPurchaseId] = useState(null);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingPurchase, setDeletingPurchase] = useState(null);
@@ -101,7 +109,7 @@ const Purchase = () => {
     });
 
     products.forEach((product) => {
-      const supplierName = (product.supplier || '').trim();
+      const supplierName = (product.supplierName || '').trim();
       if (!supplierName) return;
       const key = supplierName.toLowerCase();
       if (seen.has(key)) return;
@@ -185,7 +193,8 @@ const Purchase = () => {
           .map((item) => ({
             id: item.id,
             name: item.name || 'Unnamed product',
-            supplier: item.supplier || '',
+            supplierId: item.supplier || '',
+            supplierName: item.supplier_name || '',
             stock: parseNumber(item.stock),
             price: parseNumber(item.price),
           }))
@@ -212,6 +221,7 @@ const Purchase = () => {
           time: item.time,
           invoiceNumber: item.invoice_number,
           supplier: item.supplier,
+          products: Array.isArray(item.products) ? item.products : [],
           purchasedBy: item.purchasedBy,
           paymentMethod: item.paymentMethod,
           total: item.total,
@@ -250,6 +260,12 @@ const Purchase = () => {
     if (value.startsWith('existing:')) {
       setSupplier(value.split(':')[1]);
       setNewSupplier('');
+      setNewSupplierEmail('');
+      setNewSupplierPhone('');
+      setNewSupplierCompany('');
+      setNewSupplierAddress('');
+      setNewSupplierLeadTimeDays('');
+      setNewSupplierMinimumOrderQuantity('');
       return;
     }
 
@@ -301,10 +317,16 @@ const Purchase = () => {
   const handleResetRecord = () => {
     setSupplier('');
     setNewSupplier('');
+    setNewSupplierEmail('');
+    setNewSupplierPhone('');
+    setNewSupplierCompany('');
+    setNewSupplierAddress('');
+    setNewSupplierLeadTimeDays('');
+    setNewSupplierMinimumOrderQuantity('');
     setPurchaseDate('');
     setInvoiceNumber('');
     setPaymentMethod('Cash');
-    setPurchaseStatus('Received');
+    setPurchaseStatus('Pending');
     setNotes('');
     setPurchaseItems([createEmptyPurchaseItem()]);
     setShipping(0);
@@ -376,6 +398,12 @@ const Purchase = () => {
         payload.supplier = Number(supplier);
       } else {
         payload.newSupplier = newSupplier.trim();
+        payload.newSupplierEmail = newSupplierEmail.trim();
+        payload.newSupplierPhone = newSupplierPhone.trim();
+        payload.newSupplierCompany = newSupplierCompany.trim();
+        payload.newSupplierAddress = newSupplierAddress.trim();
+        payload.newSupplierLeadTimeDays = Number(newSupplierLeadTimeDays || 0);
+        payload.newSupplierMinimumOrderQuantity = Number(newSupplierMinimumOrderQuantity || 0);
       }
 
       await api.post('purchases/', payload);
@@ -420,6 +448,54 @@ const Purchase = () => {
 
   const handleViewDetails = (purchase) => {
     navigate(`/purchase/invoice/${purchase.id}`);
+  };
+
+  const getPurchaseDraft = (purchase) =>
+    purchaseEdits[purchase.id] || {
+      paymentMethod: purchase.paymentMethod,
+      status: purchase.status,
+    };
+
+  const handlePurchaseDraftChange = (purchaseId, field, value) => {
+    setPurchaseEdits((prev) => ({
+      ...prev,
+      [purchaseId]: {
+        ...(prev[purchaseId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const clearPurchaseDraft = (purchaseId) => {
+    setPurchaseEdits((prev) => {
+      const next = { ...prev };
+      delete next[purchaseId];
+      return next;
+    });
+  };
+
+  const handleUpdatePurchase = async (purchase) => {
+    const draft = getPurchaseDraft(purchase);
+    setIsUpdatingPurchaseId(purchase.id);
+    setMessage({ type: '', text: '' });
+
+    try {
+      await api.patch(`purchases/${purchase.id}/`, {
+        paymentMethod: draft.paymentMethod,
+        purchaseStatus: draft.status,
+      });
+
+      await Promise.all([fetchPurchases(), fetchProducts()]);
+      clearPurchaseDraft(purchase.id);
+      setMessage({ type: 'success', text: 'Purchase updated successfully.' });
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: getApiErrorMessage(error, 'Failed to update purchase.'),
+      });
+    } finally {
+      setIsUpdatingPurchaseId(null);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -475,8 +551,8 @@ const Purchase = () => {
           </p>
 
           <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+            <div className="lg:col-span-2 flex flex-col gap-6">
+              <div className="order-2 bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
                 <h4 className="text-white font-semibold mb-4">Supplier & Invoice Details</h4>
 
                 <div className="grid md:grid-cols-2 gap-4">
@@ -512,6 +588,84 @@ const Purchase = () => {
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                     />
                   </div>
+
+                  {selectedSupplier && (
+                    <div className="md:col-span-2 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white/70 space-y-1">
+                      <div className="text-white font-semibold">{selectedSupplier.name}</div>
+                      <div>Email: <span className="text-white">{selectedSupplier.email || "Not set"}</span></div>
+                      <div>Phone: <span className="text-white">{selectedSupplier.phone || "Not set"}</span></div>
+                      <div>Company: <span className="text-white">{selectedSupplier.company || "Not set"}</span></div>
+                      <div>Lead Time: <span className="text-white">{selectedSupplier.lead_time_days ? `${selectedSupplier.lead_time_days} days` : "Not set"}</span></div>
+                      <div>Minimum Order: <span className="text-white">{selectedSupplier.minimum_order_quantity || "Not set"}</span></div>
+                    </div>
+                  )}
+
+                  {newSupplier && !supplier && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-white">Supplier Email</label>
+                        <input
+                          type="email"
+                          value={newSupplierEmail}
+                          onChange={(e) => setNewSupplierEmail(e.target.value)}
+                          placeholder="supplier@example.com"
+                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-white">Supplier Phone</label>
+                        <input
+                          type="text"
+                          value={newSupplierPhone}
+                          onChange={(e) => setNewSupplierPhone(e.target.value)}
+                          placeholder="+977-98XXXXXXXX"
+                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-white">Company</label>
+                        <input
+                          type="text"
+                          value={newSupplierCompany}
+                          onChange={(e) => setNewSupplierCompany(e.target.value)}
+                          placeholder="Company name"
+                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-white">Address</label>
+                        <input
+                          type="text"
+                          value={newSupplierAddress}
+                          onChange={(e) => setNewSupplierAddress(e.target.value)}
+                          placeholder="Supplier address"
+                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-white">Lead Time (days)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={newSupplierLeadTimeDays}
+                          onChange={(e) => setNewSupplierLeadTimeDays(e.target.value)}
+                          placeholder="0"
+                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-white">Minimum Order Qty</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={newSupplierMinimumOrderQuantity}
+                          onChange={(e) => setNewSupplierMinimumOrderQuantity(e.target.value)}
+                          placeholder="0"
+                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-white">Purchase Date *</label>
@@ -582,7 +736,7 @@ const Purchase = () => {
                 )}
               </div>
 
-              <div className="space-y-4">
+              <div className="order-1 space-y-4">
                 <h4 className="text-white font-semibold">Items Purchased</h4>
 
                 {purchaseItems.map((item, index) => {
@@ -712,7 +866,7 @@ const Purchase = () => {
                 </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="order-3 space-y-2">
                 <label className="text-sm font-semibold text-white">Notes / Remarks</label>
                 <textarea
                   value={notes}
@@ -723,7 +877,7 @@ const Purchase = () => {
                 />
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="order-4 flex items-center gap-3">
                 <button
                   onClick={handleResetRecord}
                   className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all font-semibold"
@@ -886,96 +1040,167 @@ const Purchase = () => {
                 <tr>
                   <th className="text-left px-6 py-4 text-white/70 font-semibold text-sm uppercase">Date</th>
                   <th className="text-left px-6 py-4 text-white/70 font-semibold text-sm uppercase">Invoice #</th>
+                  <th className="text-left px-6 py-4 text-white/70 font-semibold text-sm uppercase">Products</th>
                   <th className="text-left px-6 py-4 text-white/70 font-semibold text-sm uppercase">Supplier</th>
                   <th className="text-left px-6 py-4 text-white/70 font-semibold text-sm uppercase">Purchased By</th>
                   <th className="text-left px-6 py-4 text-white/70 font-semibold text-sm uppercase">Payment</th>
                   <th className="text-left px-6 py-4 text-white/70 font-semibold text-sm uppercase">Total</th>
                   <th className="text-left px-6 py-4 text-white/70 font-semibold text-sm uppercase">Status</th>
-                  <th className="text-right px-6 py-4 text-white/70 font-semibold text-sm uppercase">Actions</th>
+                  <th className="text-right px-6 py-4 text-white/70 font-semibold text-sm uppercase min-w-[13rem]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
                 {isFetchingPurchases ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-white/70">
+                    <td colSpan={9} className="px-6 py-10 text-center text-white/70">
                       Loading purchase history...
                     </td>
                   </tr>
                 ) : filteredPurchaseHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-white/70">
+                    <td colSpan={9} className="px-6 py-10 text-center text-white/70">
                       No purchase records found for the selected filter.
                     </td>
                   </tr>
                 ) : (
-                  filteredPurchaseHistory.map((purchase) => (
-                    <tr key={purchase.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="text-white font-medium">{purchase.date}</div>
-                        <div className="text-white/60 text-sm">{purchase.time}</div>
-                      </td>
-                      <td className="px-6 py-4 text-white font-medium">{purchase.invoiceNumber}</td>
-                      <td className="px-6 py-4 text-white">{purchase.supplier}</td>
-                      <td className="px-6 py-4 text-white/70">{purchase.purchasedBy}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentBadge(
-                            purchase.paymentMethod
-                          )}`}
-                        >
-                          {purchase.paymentMethod}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-white font-semibold">{purchase.total}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadge(
-                            purchase.status
-                          )}`}
-                        >
-                          {purchase.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleViewDetails(purchase)}
-                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
-                            title="View Details"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeletePurchase(purchase)}
-                            className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
-                            title="Delete"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filteredPurchaseHistory.map((purchase) => {
+                    const isPending = purchase.status === 'Pending';
+                    const purchaseDraft = getPurchaseDraft(purchase);
+                    const hasDraftChanges =
+                      purchaseDraft.paymentMethod !== purchase.paymentMethod ||
+                      purchaseDraft.status !== purchase.status;
+
+                    return (
+                      <tr key={purchase.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="text-white font-medium">{purchase.date}</div>
+                          <div className="text-white/60 text-sm">{purchase.time}</div>
+                        </td>
+                        <td className="px-6 py-4 text-white font-medium">{purchase.invoiceNumber}</td>
+                        <td className="px-6 py-4">
+                          {(purchase.products || []).length === 0 ? (
+                            <span className="text-white/50 text-sm">No items</span>
+                          ) : (
+                            <div className="space-y-1">
+                              {purchase.products.map((product) => (
+                                <div key={product.id} className="text-sm">
+                                  <div className="font-medium text-white">{product.name}</div>
+                                  <div className="text-white/60">Qty {product.quantity}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-white">{purchase.supplier}</td>
+                        <td className="px-6 py-4 text-white/70">{purchase.purchasedBy}</td>
+                        <td className="px-6 py-4">
+                          {isPending ? (
+                            <select
+                              value={purchaseDraft.paymentMethod}
+                              onChange={(e) =>
+                                handlePurchaseDraftChange(purchase.id, 'paymentMethod', e.target.value)
+                              }
+                              className="w-full min-w-[10rem] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            >
+                              <option value="Cash" className="bg-slate-800">Cash</option>
+                              <option value="Bank Transfer" className="bg-slate-800">Bank Transfer</option>
+                              <option value="Credit" className="bg-slate-800">Credit</option>
+                            </select>
+                          ) : (
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentBadge(
+                                purchase.paymentMethod
+                              )}`}
+                            >
+                              {purchase.paymentMethod}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-white font-semibold">{purchase.total}</td>
+                        <td className="px-6 py-4">
+                          {isPending ? (
+                            <select
+                              value={purchaseDraft.status}
+                              onChange={(e) =>
+                                handlePurchaseDraftChange(purchase.id, 'status', e.target.value)
+                              }
+                              className="w-full min-w-[10rem] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            >
+                              <option value="Pending" className="bg-slate-800">Pending</option>
+                              <option value="Received" className="bg-slate-800">Received</option>
+                              <option value="Cancelled" className="bg-slate-800">Cancelled</option>
+                            </select>
+                          ) : (
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadge(
+                                purchase.status
+                              )}`}
+                            >
+                              {purchase.status}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 min-w-[13rem]">
+                          <div className="ml-auto flex max-w-[13rem] flex-wrap items-center justify-end gap-2">
+                            {isPending && (
+                              <>
+                                <button
+                                  onClick={() => handleUpdatePurchase(purchase)}
+                                  disabled={!hasDraftChanges || isUpdatingPurchaseId === purchase.id}
+                                  className="shrink-0 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 transition-all hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="Save Changes"
+                                >
+                                  {isUpdatingPurchaseId === purchase.id ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                  onClick={() => clearPurchaseDraft(purchase.id)}
+                                  disabled={isUpdatingPurchaseId === purchase.id}
+                                  className="shrink-0 rounded-lg bg-white/5 px-3 py-2 text-xs font-semibold text-white/70 transition-all hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="Reset Changes"
+                                >
+                                  Reset
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => handleViewDetails(purchase)}
+                              className="shrink-0 rounded-lg p-2 text-white/70 transition-all hover:bg-white/10 hover:text-white"
+                              title="View Details"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeletePurchase(purchase)}
+                              className="shrink-0 rounded-lg p-2 text-red-400 transition-all hover:bg-red-500/10 hover:text-red-300"
+                              title="Delete"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

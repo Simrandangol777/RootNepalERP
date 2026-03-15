@@ -33,6 +33,27 @@ const normalizeTags = (tags) => {
   return [];
 };
 
+const formatDateTime = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const buildUpdatedLabel = (updatedAt, updatedBy) => {
+  const formatted = formatDateTime(updatedAt);
+  if (formatted && updatedBy) return `Updated ${formatted} by ${updatedBy}`;
+  if (formatted) return `Updated ${formatted}`;
+  if (updatedBy) return `Updated by ${updatedBy}`;
+  return "";
+};
+
 const mapApiProductToUi = (product) => ({
   id: product.id,
   name: product.name || "",
@@ -40,13 +61,25 @@ const mapApiProductToUi = (product) => ({
   category: product.category || "",
   categoryName: product.category_name || "",
   skuNumber: product.sku_number || "",
-  price: Number(product.price || 0),
+  costPrice: Number(product.cost_price || 0),
+  sellingPrice: Number(product.selling_price || product.price || 0),
+  price: Number(product.selling_price || product.price || 0),
   stock: Number(product.stock || 0),
   image: toMediaUrl(product.image),
-  supplier: product.supplier || "",
+  supplier: product.supplier ? String(product.supplier) : "",
+  supplierId: product.supplier ? String(product.supplier) : "",
+  supplierName: product.supplier_name || "",
+  supplierEmail: product.supplier_email || "",
+  supplierPhone: product.supplier_phone || "",
+  supplierCompany: product.supplier_company || "",
+  supplierAddress: product.supplier_address || "",
+  supplierLeadTimeDays: Number(product.supplier_lead_time_days || 0),
+  supplierMinimumOrderQuantity: Number(product.supplier_minimum_order_quantity || 0),
   reorderLevel: Number(product.reorder_level || 0),
   tags: normalizeTags(product.tags),
   status: product.status || "Active",
+  updatedAt: product.updated_at || product.updatedDate || "",
+  updatedBy: product.updatedBy || "",
 });
 
 const getApiErrorMessage = (error, fallback) => {
@@ -69,11 +102,41 @@ const buildProductFormData = (productData) => {
   formData.append("category", productData.category || "");
   formData.append("sku_number", productData.skuNumber || "");
   formData.append("price", String(Number(productData.price || 0)));
+  formData.append("cost_price", String(Number(productData.costPrice || 0)));
+  formData.append("selling_price", String(Number(productData.sellingPrice || 0)));
   formData.append("stock", String(Number(productData.stock || 0)));
   formData.append("supplier", productData.supplier || "");
   formData.append("reorder_level", String(Number(productData.reorderLevel || 0)));
   formData.append("tags", (productData.tags || []).join(", "));
   formData.append("status", productData.status || "Active");
+
+  if (productData.supplierEmail !== "" && productData.supplierEmail !== undefined) {
+    formData.append("supplierEmail", productData.supplierEmail || "");
+  }
+  if (productData.supplierPhone !== "" && productData.supplierPhone !== undefined) {
+    formData.append("supplierPhone", productData.supplierPhone || "");
+  }
+  if (productData.supplierCompany !== "" && productData.supplierCompany !== undefined) {
+    formData.append("supplierCompany", productData.supplierCompany || "");
+  }
+  if (productData.supplierAddress !== "" && productData.supplierAddress !== undefined) {
+    formData.append("supplierAddress", productData.supplierAddress || "");
+  }
+  if (
+    productData.supplierLeadTimeDays !== "" &&
+    productData.supplierLeadTimeDays !== undefined
+  ) {
+    formData.append("supplierLeadTimeDays", String(productData.supplierLeadTimeDays));
+  }
+  if (
+    productData.supplierMinimumOrderQuantity !== "" &&
+    productData.supplierMinimumOrderQuantity !== undefined
+  ) {
+    formData.append(
+      "supplierMinimumOrderQuantity",
+      String(productData.supplierMinimumOrderQuantity)
+    );
+  }
 
   if (productData.imageFile) {
     formData.append("image", productData.imageFile);
@@ -202,7 +265,31 @@ const Products = () => {
 
 
   const handleSaveProduct = async (productData) => {
-    const payload = buildProductFormData(productData);
+    let supplierId = productData.supplier;
+
+    if (!supplierId && productData.newSupplierName) {
+      const supplierPayload = {
+        name: productData.newSupplierName,
+        email: productData.supplierEmail || "",
+        phone: productData.supplierPhone || "",
+        company: productData.supplierCompany || "",
+        address: productData.supplierAddress || "",
+        lead_time_days: productData.supplierLeadTimeDays || 0,
+        minimum_order_quantity: productData.supplierMinimumOrderQuantity || 0,
+        is_active: true,
+      };
+
+      const supplierResponse = await api.post("suppliers/", supplierPayload);
+      supplierId = supplierResponse.data?.id ? String(supplierResponse.data.id) : "";
+      if (!supplierId) {
+        throw new Error("Failed to create supplier.");
+      }
+    }
+
+    const payload = buildProductFormData({
+      ...productData,
+      supplier: supplierId,
+    });
 
     try {
       if (editingProduct) {
@@ -341,7 +428,9 @@ const Products = () => {
                     </td>
                   </tr>
                 ) : (
-                  paginatedProducts.map((product) => (
+                  paginatedProducts.map((product) => {
+                    const updatedLabel = buildUpdatedLabel(product.updatedAt, product.updatedBy);
+                    return (
                     <tr key={product.id} className="hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4">
                         <div className="w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
@@ -357,6 +446,11 @@ const Products = () => {
                       <td className="px-6 py-4">
                         <div className="text-white font-medium">{product.name}</div>
                         <div className="text-white/50 text-sm line-clamp-1">{product.description}</div>
+                        {updatedLabel && (
+                          <div className="text-white/50 text-xs mt-1">
+                            {updatedLabel}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-white/70">{product.categoryName}</td>
                       <td className="px-6 py-4 text-white/70">{product.skuNumber}</td>
@@ -407,7 +501,7 @@ const Products = () => {
                         </div>
                       </td>
                     </tr>
-                  ))
+                  )})
                 )}
               </tbody>
             </table>

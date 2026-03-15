@@ -1,103 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/axios';
 import DashboardLayout from '../components/DashboardLayout';
-
-const EMPTY_REPORT_DATA = {
-  summaryData: {
-    totalRevenue: 0,
-    totalPurchaseCost: 0,
-    grossProfit: 0,
-    totalProducts: 0,
-    healthyStockItems: 0,
-    lowStockItems: 0,
-    outOfStockItems: 0,
-    inventoryValue: 0,
-    restockSuggestions: 0,
-    totalPurchaseOrders: 0,
-    averagePurchaseOrderValue: 0,
-    dateRange: 'all_time',
-  },
-  topSellingProducts: [],
-  topCategories: [],
-  topSuppliers: [],
-  lowStockItems: [],
-  outOfStockItems: [],
-  restockSuggestions: [],
-  categoryStock: [],
-  monthlySales: [],
-};
-
-const toNumber = (value) => {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
-};
-
-const getApiErrorMessage = (error, fallback) => {
-  const data = error?.response?.data;
-  if (!data) return fallback;
-  if (typeof data === 'string') return data;
-  if (typeof data.message === 'string') return data.message;
-
-  const firstKey = Object.keys(data)[0];
-  const firstValue = data[firstKey];
-  if (Array.isArray(firstValue) && firstValue.length > 0) return String(firstValue[0]);
-  if (typeof firstValue === 'string') return firstValue;
-  return fallback;
-};
-
-const normalizeReportData = (payload) => {
-  const safePayload = payload && typeof payload === 'object' ? payload : {};
-  const summary = safePayload.summaryData || {};
-
-  return {
-    summaryData: {
-      ...EMPTY_REPORT_DATA.summaryData,
-      totalRevenue: toNumber(summary.totalRevenue),
-      totalPurchaseCost: toNumber(summary.totalPurchaseCost),
-      grossProfit: toNumber(summary.grossProfit),
-      totalProducts: toNumber(summary.totalProducts),
-      healthyStockItems: toNumber(summary.healthyStockItems),
-      lowStockItems: toNumber(summary.lowStockItems),
-      outOfStockItems: toNumber(summary.outOfStockItems),
-      inventoryValue: toNumber(summary.inventoryValue),
-      restockSuggestions: toNumber(summary.restockSuggestions),
-      totalPurchaseOrders: toNumber(summary.totalPurchaseOrders),
-      averagePurchaseOrderValue: toNumber(summary.averagePurchaseOrderValue),
-      dateRange: typeof summary.dateRange === 'string' ? summary.dateRange : 'all_time',
-    },
-    topSellingProducts: Array.isArray(safePayload.topSellingProducts)
-      ? safePayload.topSellingProducts.map((item) => ({
-          name: item?.name || 'Unnamed product',
-          unitsSold: toNumber(item?.unitsSold),
-          revenue: toNumber(item?.revenue),
-        }))
-      : [],
-    topCategories: Array.isArray(safePayload.topCategories)
-      ? safePayload.topCategories.map((item) => ({
-          name: item?.name || 'Uncategorized',
-          revenue: toNumber(item?.revenue),
-          percentage: toNumber(item?.percentage),
-        }))
-      : [],
-    topSuppliers: Array.isArray(safePayload.topSuppliers)
-      ? safePayload.topSuppliers.map((item) => ({
-          name: item?.name || 'Unknown supplier',
-          purchaseAmount: toNumber(item?.purchaseAmount),
-          orders: toNumber(item?.orders),
-        }))
-      : [],
-    lowStockItems: Array.isArray(safePayload.lowStockItems) ? safePayload.lowStockItems : [],
-    outOfStockItems: Array.isArray(safePayload.outOfStockItems) ? safePayload.outOfStockItems : [],
-    restockSuggestions: Array.isArray(safePayload.restockSuggestions) ? safePayload.restockSuggestions : [],
-    categoryStock: Array.isArray(safePayload.categoryStock) ? safePayload.categoryStock : [],
-    monthlySales: Array.isArray(safePayload.monthlySales)
-      ? safePayload.monthlySales.map((item) => ({
-          month: item?.month || 'Unknown',
-          sales: toNumber(item?.sales),
-        }))
-      : [],
-  };
-};
+import {
+  EMPTY_REPORT_DATA,
+  getApiErrorMessage,
+  getRestockPriorityMeta,
+  normalizeReportData,
+  toNumber,
+} from '../utils/reportData';
 
 const Reports = () => {
   const [dateFilter, setDateFilter] = useState('all_time');
@@ -177,19 +87,6 @@ const Reports = () => {
     URL.revokeObjectURL(url);
 
     setMessage({ type: 'success', text: 'Report exported successfully.' });
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'High':
-        return 'bg-red-500/20 text-red-400';
-      case 'Medium':
-        return 'bg-yellow-500/20 text-yellow-400';
-      case 'Low':
-        return 'bg-green-500/20 text-green-400';
-      default:
-        return 'bg-gray-500/20 text-gray-400';
-    }
   };
 
   return (
@@ -744,7 +641,7 @@ const Reports = () => {
                         </td>
                         <td className="px-6 py-4 text-white/70">{item.leadTime}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(item.priority)}`}>
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getRestockPriorityMeta(item.priority).badgeClass}`}>
                             {item.priority}
                           </span>
                         </td>

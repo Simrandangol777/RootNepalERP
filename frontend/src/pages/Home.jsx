@@ -19,7 +19,7 @@ const Home = () => {
         <div className="max-w-7xl w-full grid lg:grid-cols-2 gap-12 items-center">
           
           {/* Left Section - Hero Content */}
-          <div className="text-white space-y-8 order-2 lg:order-1">
+          <div className="hidden lg:block text-white space-y-8 order-1 lg:order-1">
             <div className="space-y-6">
               {/* Badge */}
               {/* <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/20 border border-purple-500/30 backdrop-blur-sm">
@@ -93,7 +93,7 @@ const Home = () => {
           </div>
 
           {/* Right Section - Auth Card */}
-          <div className="order-1 lg:order-2">
+          <div className="order-2 lg:order-2">
             <div className="relative">
               {/* Glow effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 rounded-3xl blur-2xl opacity-20"></div>

@@ -113,13 +113,18 @@ const Register = () => {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      <Link to="/"
-      className="absolute top-8 left-8 z-10 rounded-full bg-white/10 px-5 py-2 text-sm text-gray-200 backdrop-blur-md transition hover:bg-white/20">
-        ← Back to Home
-      </Link>
-
       {/* Main Content */}
-      <div className="relative max-w-6xl w-full grid lg:grid-cols-2 gap-12 items-center">
+      <div className="relative max-w-6xl w-full">
+        <div className="flex justify-start mb-6 lg:mb-0 lg:absolute lg:-top-12 lg:left-0">
+          <Link
+            to="/"
+            className="inline-flex rounded-full bg-white/10 px-5 py-2 text-sm text-gray-200 backdrop-blur-md transition hover:bg-white/20"
+          >
+            ← Back to Home
+          </Link>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
         
         {/* Left Side - Benefits */}
         <div className="hidden lg:block text-white space-y-8">
@@ -395,6 +400,7 @@ const Register = () => {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

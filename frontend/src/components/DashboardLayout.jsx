@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { authUserUpdatedEvent, clearAuthData, getStoredUser } from "../auth/storage";
+import api from "../api/axios";
 import logo from '../assets/logo.jpeg';
 import Footer from "./Footer";
+import { normalizeReportData } from "../utils/reportData";
 
 const THEME_STORAGE_KEY = "ui-theme-mode";
 const VALID_THEME_MODES = new Set(["light", "dark", "system"]);
@@ -25,10 +27,14 @@ const applyThemeToDocument = (theme) => {
 const DashboardLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.matchMedia("(min-width: 1024px)").matches;
+  });
   const [user, setUser] = useState(getStoredUser());
   const [themeMode, setThemeMode] = useState(getStoredThemeMode);
   const [resolvedTheme, setResolvedTheme] = useState(() => resolveTheme(getStoredThemeMode()));
+  const [notificationSummary, setNotificationSummary] = useState({ total: 0, high: 0 });
 
   const isLightTheme = resolvedTheme === "light";
 
@@ -43,6 +49,29 @@ const DashboardLayout = ({ children }) => {
     return () => {
       window.removeEventListener("storage", syncUser);
       window.removeEventListener(authUserUpdatedEvent, syncUser);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const handleBreakpointChange = (event) => {
+      setIsSidebarOpen(event.matches);
+    };
+
+    handleBreakpointChange(mediaQuery);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleBreakpointChange);
+    } else {
+      mediaQuery.addListener(handleBreakpointChange);
+    }
+
+    return () => {
+      if (typeof mediaQuery.removeEventListener === "function") {
+        mediaQuery.removeEventListener("change", handleBreakpointChange);
+      } else {
+        mediaQuery.removeListener(handleBreakpointChange);
+      }
     };
   }, []);
 
@@ -77,6 +106,38 @@ const DashboardLayout = ({ children }) => {
       }
     };
   }, [themeMode]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchNotificationSummary = async () => {
+      try {
+        const res = await api.get("reports/dashboard/", { params: { date_range: "all_time" } });
+        if (!isActive) return;
+
+        const reportData = normalizeReportData(res.data);
+        const restockSuggestions = Array.isArray(reportData.restockSuggestions)
+          ? reportData.restockSuggestions
+          : [];
+
+        const highPriorityCount = restockSuggestions.filter((item) => item?.priority === "High").length;
+
+        setNotificationSummary({
+          total: restockSuggestions.length,
+          high: highPriorityCount,
+        });
+      } catch (error) {
+        if (!isActive) return;
+        setNotificationSummary({ total: 0, high: 0 });
+      }
+    };
+
+    fetchNotificationSummary();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const handleLogout = () => {
     clearAuthData();
@@ -174,6 +235,10 @@ const DashboardLayout = ({ children }) => {
     return location.pathname === item.path;
   };
 
+  const notificationCountLabel =
+    notificationSummary.total > 99 ? "99+" : String(notificationSummary.total);
+  const isNotificationsPage = location.pathname === "/notifications";
+
   return (
     <div
       data-dashboard-theme={resolvedTheme}
@@ -191,8 +256,24 @@ const DashboardLayout = ({ children }) => {
       </div>
 
       <div className="relative flex min-h-screen">
+        {isSidebarOpen && (
+          <button
+            type="button"
+            aria-label="Close sidebar"
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 z-20 bg-slate-900/40 backdrop-blur-sm lg:hidden"
+          />
+        )}
+
         {/* Sidebar */}
-        <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} transition-all duration-300 backdrop-blur-xl border-r flex flex-col ${isLightTheme ? 'bg-white/85 border-slate-200' : 'bg-white/10 border-white/20'}`}>
+        <aside
+          id="dashboard-sidebar"
+          className={`fixed inset-y-0 left-0 z-30 flex flex-col transition-all duration-300 backdrop-blur-xl border-r lg:static ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          } ${
+            isSidebarOpen ? "w-64" : "w-64 lg:w-20"
+          } ${isLightTheme ? "bg-white/85 border-slate-200" : "bg-white/10 border-white/20"}`}
+        >
           {/* User Profile Section - Top */}
           <div className={`p-4 border-b ${isLightTheme ? 'border-slate-200' : 'border-white/20'}`}>
             <Link
@@ -248,6 +329,8 @@ const DashboardLayout = ({ children }) => {
                   ? 'bg-slate-100 hover:bg-slate-200 text-slate-900'
                   : 'bg-white/5 hover:bg-white/10 text-white'
               }`}
+              aria-expanded={isSidebarOpen}
+              aria-controls="dashboard-sidebar"
             >
               <svg className={`w-5 h-5 transition-transform ${!isSidebarOpen && 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
@@ -267,6 +350,8 @@ const DashboardLayout = ({ children }) => {
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                   className={`lg:hidden p-2 transition-colors ${isLightTheme ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
+                  aria-expanded={isSidebarOpen}
+                  aria-controls="dashboard-sidebar"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -282,6 +367,36 @@ const DashboardLayout = ({ children }) => {
 
               {/* Right - Actions */}
               <div className="flex items-center gap-3">
+                <Link
+                  to="/notifications"
+                  aria-label="Open notifications"
+                  className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-all ${
+                    isNotificationsPage
+                      ? "border-cyan-400/40 bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg"
+                      : isLightTheme
+                        ? "border-slate-200 bg-slate-100 text-slate-900 hover:bg-slate-200"
+                        : "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                  }`}
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.389 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
+                  </svg>
+
+                  {notificationSummary.high > 0 && (
+                    <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-red-400 ring-2 ring-white/40 animate-pulse"></span>
+                  )}
+
+                  {notificationSummary.total > 0 && (
+                    <span className={`absolute -right-2 -top-2 min-w-[1.4rem] rounded-full px-1.5 py-0.5 text-center text-[10px] font-bold ${
+                      notificationSummary.high > 0
+                        ? "bg-red-500 text-white"
+                        : "bg-cyan-500 text-white"
+                    }`}>
+                      {notificationCountLabel}
+                    </span>
+                  )}
+                </Link>
+
                 {/* Theme Mode */}
                 <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${isLightTheme ? 'bg-slate-100 border-slate-200 text-slate-900' : 'bg-white/10 border-white/20 text-white'}`}>
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
