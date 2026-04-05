@@ -317,15 +317,15 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-white/20 shadow-2xl">
-        <div className="bg-white/10 backdrop-blur-xl border-b border-white/20 px-6 py-4 flex items-center justify-between">
+    <div className="product-modal fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="product-modal-shell bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-white/20 shadow-2xl">
+        <div className="product-modal-header bg-white/10 backdrop-blur-xl border-b border-white/20 px-6 py-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">
             {product ? "Edit Product" : "Add New Product"}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+            className="product-modal-close p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -334,18 +334,18 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
-          <div className="overflow-y-auto p-6 space-y-6" style={{ maxHeight: "calc(90vh - 140px)" }}>
+          <div className="product-modal-body overflow-y-auto p-6 space-y-6" style={{ maxHeight: "calc(90vh - 140px)" }}>
             {formError && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              <div className="product-modal-message rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                 {formError}
               </div>
             )}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div className="product-modal-panel bg-white/5 border border-white/10 rounded-2xl p-6">
               <label className="text-sm font-semibold text-white mb-3 block">Product Image</label>
               <div className="flex items-start gap-6">
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-48 h-48 rounded-xl bg-white/5 border-2 border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 hover:border-white/30 transition-all overflow-hidden"
+                  className="product-modal-upload w-48 h-48 rounded-xl bg-white/5 border-2 border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 hover:border-white/30 transition-all overflow-hidden"
                 >
                   {imagePreview ? (
                     <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
@@ -376,7 +376,7 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
                     <button
                       type="button"
                       onClick={handleRemoveImage}
-                      className="text-red-400 hover:text-red-300 text-sm flex items-center gap-1 mt-2"
+                      className="product-modal-remove text-red-400 hover:text-red-300 text-sm flex items-center gap-1 mt-2"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -388,7 +388,7 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
               </div>
             </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+            <div className="product-modal-panel bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
               <h3 className="text-lg font-semibold text-white mb-4">Basic Information</h3>
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -495,7 +495,7 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
               </div>
             </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+            <div className="product-modal-panel bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
               <h3 className="text-lg font-semibold text-white mb-4">Pricing & Stock</h3>
 
               <div className="grid md:grid-cols-3 gap-4">
@@ -576,7 +576,7 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
               </div>
             </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+            <div className="product-modal-panel bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
               <h3 className="text-lg font-semibold text-white mb-4">Supplier Information</h3>
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -743,15 +743,15 @@ const AddEditProductModal = ({ product, onClose, onSave }) => {
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-xl border-t border-white/20 px-6 py-4 flex items-center justify-end gap-3">
+          <div className="product-modal-footer bg-white/10 backdrop-blur-xl border-t border-white/20 px-6 py-4 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all"
+              className="product-modal-secondary px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all"
             >
               Cancel
             </button>
-            <button type="submit" disabled={isLoading} className="group relative px-6 py-3">
+            <button type="submit" disabled={isLoading} className="product-modal-primary group relative px-6 py-3">
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity"></div>
               <div className="relative bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold transition-all group-hover:scale-105 group-active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2">
                 {isLoading ? (

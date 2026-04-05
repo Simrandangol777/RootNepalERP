@@ -17,6 +17,19 @@ const priorityDescriptions = {
   Low: "Can be bundled later",
 };
 
+const getPriorityKey = (priority) => {
+  switch (priority) {
+    case "High":
+      return "high";
+    case "Medium":
+      return "medium";
+    case "Low":
+      return "low";
+    default:
+      return "watch";
+  }
+};
+
 const Notifications = () => {
   const [reportData, setReportData] = useState(EMPTY_REPORT_DATA);
   const [severityFilter, setSeverityFilter] = useState("All");
@@ -79,8 +92,8 @@ const Notifications = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-6 lg:p-8 space-y-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <div className="notifications-page space-y-6 p-6 lg:p-8">
+        <div className="notification-hero flex flex-col gap-4 rounded-[2rem] border border-white/15 bg-white/10 p-6 backdrop-blur-xl xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
               Smart Restock Feed
@@ -95,14 +108,14 @@ const Notifications = () => {
           <div className="flex flex-wrap items-center gap-3">
             <Link
               to="/reports"
-              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 transition-all hover:bg-white/10 hover:text-white"
+              className="notification-secondary-action rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 transition-all hover:bg-white/10 hover:text-white"
             >
               Open full reports
             </Link>
             <button
               type="button"
               onClick={fetchNotifications}
-              className="group relative px-5 py-2"
+              className="notification-primary-action group relative px-5 py-2"
             >
               <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 opacity-50 blur-lg transition-opacity group-hover:opacity-75"></div>
               <div className="relative flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2 text-sm font-semibold text-white transition-transform group-hover:scale-[1.02]">
@@ -117,7 +130,7 @@ const Notifications = () => {
 
         {message.text && (
           <div
-            className={`rounded-2xl border p-4 ${
+            className={`notification-message rounded-2xl border p-4 ${
               message.type === "error"
                 ? "border-red-500/25 bg-red-500/10 text-red-200"
                 : "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
@@ -128,32 +141,32 @@ const Notifications = () => {
         )}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-xl">
+          <div className="notification-stat-card notification-stat-card--total rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-xl">
             <p className="text-sm text-white/60">Total active notifications</p>
             <p className="mt-3 text-3xl font-bold text-white">{counts.total}</p>
             <p className="mt-2 text-sm text-cyan-300">Smart restock items being tracked</p>
           </div>
 
-          <div className="rounded-2xl border border-red-500/25 bg-red-500/[0.08] p-5">
+          <div className="notification-stat-card notification-stat-card--high rounded-2xl border border-red-500/25 bg-red-500/[0.08] p-5">
             <p className="text-sm text-red-200/80">High priority</p>
             <p className="mt-3 text-3xl font-bold text-red-200">{counts.high}</p>
             <p className="mt-2 text-sm text-red-300">Immediate reorder recommended</p>
           </div>
 
-          <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.08] p-5">
+          <div className="notification-stat-card notification-stat-card--medium rounded-2xl border border-amber-500/25 bg-amber-500/[0.08] p-5">
             <p className="text-sm text-amber-200/80">Medium priority</p>
             <p className="mt-3 text-3xl font-bold text-amber-200">{counts.medium}</p>
             <p className="mt-2 text-sm text-amber-300">Needs attention in the next cycle</p>
           </div>
 
-          <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.08] p-5">
+          <div className="notification-stat-card notification-stat-card--low rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.08] p-5">
             <p className="text-sm text-emerald-200/80">Low priority</p>
             <p className="mt-3 text-3xl font-bold text-emerald-200">{counts.low}</p>
             <p className="mt-2 text-sm text-emerald-300">Safe to batch into future purchasing</p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-xl">
+        <div className="notification-panel rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-xl">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-white">Alert priority</h3>
@@ -177,7 +190,9 @@ const Notifications = () => {
                     key={priority}
                     type="button"
                     onClick={() => setSeverityFilter(priority)}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                    className={`notification-filter-button notification-filter-button--${getPriorityKey(
+                      priority
+                    )} ${isActive ? "is-active" : ""} rounded-full px-4 py-2 text-sm font-semibold transition-all ${
                       isActive
                         ? meta.badgeClass
                         : "border border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
@@ -193,14 +208,14 @@ const Notifications = () => {
 
         <div className="space-y-4">
           {isLoading && (
-            <div className="rounded-2xl border border-white/20 bg-white/10 p-6 text-white/70 backdrop-blur-xl">
+            <div className="notification-panel rounded-2xl border border-white/20 bg-white/10 p-6 text-white/70 backdrop-blur-xl">
               Loading smart restock notifications...
             </div>
           )}
 
           {!isLoading && filteredSuggestions.length === 0 && (
-            <div className="rounded-2xl border border-white/20 bg-white/10 p-8 text-center backdrop-blur-xl">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-300">
+            <div className="notification-panel rounded-2xl border border-white/20 bg-white/10 p-8 text-center backdrop-blur-xl">
+              <div className="notification-empty-icon mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-300">
                 <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -215,6 +230,7 @@ const Notifications = () => {
           {!isLoading &&
             filteredSuggestions.map((item, index) => {
               const meta = getRestockPriorityMeta(item.priority);
+              const priorityKey = getPriorityKey(item.priority);
               const currentStock = Number(item.currentStock ?? 0);
               const reorderLevel = Number(item.reorderLevel ?? 0);
               const predictedDemand = Number(item.predictedDemand ?? 0);
@@ -225,13 +241,15 @@ const Notifications = () => {
               return (
                 <div
                   key={`${item.product}-${index}`}
-                  className={`overflow-hidden rounded-3xl border bg-white/10 backdrop-blur-xl ${meta.softCardClass}`}
+                  className={`notification-item notification-item--${priorityKey} overflow-hidden rounded-3xl border bg-white/10 backdrop-blur-xl ${meta.softCardClass}`}
                 >
                   <div className={`h-1.5 w-full bg-gradient-to-r ${meta.accentClass}`}></div>
                   <div className="p-6">
                     <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                       <div className="flex items-start gap-4">
-                        <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${meta.iconClass}`}>
+                        <div
+                          className={`notification-item-icon notification-item-icon--${priorityKey} flex h-14 w-14 items-center justify-center rounded-2xl ${meta.iconClass}`}
+                        >
                           <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-4.418 0-8 2.239-8 5s3.582 5 8 5 8-2.239 8-5-3.582-5-8-5zm0 0V5m0 13v1m0-14a3 3 0 013 3m-3-3a3 3 0 00-3 3" />
                           </svg>
@@ -240,7 +258,9 @@ const Notifications = () => {
                         <div>
                           <div className="flex flex-wrap items-center gap-3">
                             <h3 className="text-xl font-semibold text-white">{item.product}</h3>
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${meta.badgeClass}`}>
+                            <span
+                              className={`notification-badge notification-badge--${priorityKey} rounded-full px-3 py-1 text-xs font-semibold ${meta.badgeClass}`}
+                            >
                               {meta.label}
                             </span>
                           </div>
@@ -249,24 +269,28 @@ const Notifications = () => {
                               ? "Currently out of stock and at immediate risk of missed sales."
                               : `Running ${shortfall} units below the reorder level and ${demandGap} units behind projected demand.`}
                           </p>
-                          <p className={`mt-3 text-sm font-medium ${meta.textClass}`}>{meta.message}</p>
+                          <p
+                            className={`notification-item-emphasis notification-item-emphasis--${priorityKey} mt-3 text-sm font-medium ${meta.textClass}`}
+                          >
+                            {meta.message}
+                          </p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:min-w-[28rem]">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div className="notification-metric-card rounded-2xl border border-white/10 bg-white/5 p-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-white/50">In stock</p>
                           <p className="mt-2 text-2xl font-bold text-white">{currentStock}</p>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div className="notification-metric-card rounded-2xl border border-white/10 bg-white/5 p-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-white/50">Reorder at</p>
                           <p className="mt-2 text-2xl font-bold text-white">{reorderLevel}</p>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div className="notification-metric-card rounded-2xl border border-white/10 bg-white/5 p-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-white/50">Demand</p>
                           <p className="mt-2 text-2xl font-bold text-white">{predictedDemand}</p>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div className="notification-metric-card rounded-2xl border border-white/10 bg-white/5 p-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-white/50">Restock qty</p>
                           <p className="mt-2 text-2xl font-bold text-white">{suggestedQty}</p>
                         </div>
@@ -274,19 +298,21 @@ const Notifications = () => {
                     </div>
 
                     <div className="mt-5 grid gap-3 lg:grid-cols-3">
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <div className="notification-metric-card rounded-2xl border border-white/10 bg-white/5 p-4">
                         <p className="text-sm text-white/60">Lead time</p>
                         <p className="mt-1 text-base font-semibold text-white">{item.leadTime}</p>
                       </div>
 
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <div className="notification-metric-card rounded-2xl border border-white/10 bg-white/5 p-4">
                         <p className="text-sm text-white/60">Restock risk</p>
-                        <p className={`mt-1 text-base font-semibold ${meta.textClass}`}>
+                        <p
+                          className={`notification-item-emphasis notification-item-emphasis--${priorityKey} mt-1 text-base font-semibold ${meta.textClass}`}
+                        >
                           {currentStock === 0 ? "Zero stock on hand" : `${shortfall} unit reorder gap`}
                         </p>
                       </div>
 
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <div className="notification-metric-card rounded-2xl border border-white/10 bg-white/5 p-4">
                         <p className="text-sm text-white/60">Next action</p>
                         <p className="mt-1 text-base font-semibold text-white">
                           {item.priority === "High"

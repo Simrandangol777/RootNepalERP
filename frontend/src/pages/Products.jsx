@@ -335,7 +335,7 @@ const Products = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-6 lg:p-8">
+      <div className="product-page p-6 lg:p-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-white mb-2">Products</h2>
           <p className="text-white/70">Manage your product inventory</p>
@@ -343,7 +343,7 @@ const Products = () => {
 
         {message.text && (
           <div
-            className={`mb-6 p-4 rounded-xl ${
+            className={`product-page-message mb-6 p-4 rounded-xl ${
               message.type === "success"
                 ? "bg-green-500/10 border border-green-500/20 text-green-300"
                 : "bg-red-500/10 border border-red-500/20 text-red-300"
@@ -353,7 +353,7 @@ const Products = () => {
           </div>
         )}
 
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
+        <div className="product-page-toolbar bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
             <div className="relative flex-1 w-full lg:max-w-md">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -366,7 +366,7 @@ const Products = () => {
                 placeholder="Search products..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="product-page-input w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               />
             </div>
 
@@ -374,7 +374,7 @@ const Products = () => {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all cursor-pointer"
+                className="product-page-select px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all cursor-pointer"
               >
                 {categories.map((cat) => (
                   <option key={cat} value={cat} className="bg-slate-800">
@@ -383,7 +383,7 @@ const Products = () => {
                 ))}
               </select>
 
-              <button onClick={handleAddProduct} className="group relative px-6 py-3 whitespace-nowrap">
+              <button onClick={handleAddProduct} className="product-page-primary group relative px-6 py-3 whitespace-nowrap">
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity"></div>
                 <div className="relative bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold transition-all group-hover:scale-105 flex items-center gap-2">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -400,10 +400,10 @@ const Products = () => {
           </div>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden">
+        <div className="product-page-table-shell bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-white/5 border-b border-white/10">
+              <thead className="product-page-table-head bg-white/5 border-b border-white/10">
                 <tr>
                   <th className="text-left px-6 py-4 text-white/70 font-semibold text-sm">Image</th>
                   <th className="text-left px-6 py-4 text-white/70 font-semibold text-sm">Product Name</th>
@@ -431,9 +431,9 @@ const Products = () => {
                   paginatedProducts.map((product) => {
                     const updatedLabel = buildUpdatedLabel(product.updatedAt, product.updatedBy);
                     return (
-                    <tr key={product.id} className="hover:bg-white/5 transition-colors">
+                    <tr key={product.id} className="product-page-row hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+                        <div className="product-page-thumb w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
                           {product.image ? (
                             <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                           ) : (
@@ -472,7 +472,7 @@ const Products = () => {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleViewDetails(product)}
-                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                            className="product-page-icon-button p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
                             title="View Details"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -482,7 +482,7 @@ const Products = () => {
                           </button>
                           <button
                             onClick={() => handleEditProduct(product)}
-                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                            className="product-page-icon-button p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
                             title="Edit"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -491,7 +491,7 @@ const Products = () => {
                           </button>
                           <button
                             onClick={() => handleDeleteProduct(product)}
-                            className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
+                            className="product-page-delete-button p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
                             title="Delete"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -508,7 +508,7 @@ const Products = () => {
           </div>
 
           {totalPages > 1 && (
-            <div className="border-t border-white/10 px-6 py-4 flex items-center justify-between">
+            <div className="product-page-pagination border-t border-white/10 px-6 py-4 flex items-center justify-between">
               <div className="text-white/60 text-sm">
                 Page {safeCurrentPage} of {totalPages}
               </div>
@@ -516,14 +516,14 @@ const Products = () => {
                 <button
                   onClick={() => setCurrentPage(Math.max(1, safeCurrentPage - 1))}
                   disabled={safeCurrentPage === 1}
-                  className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                  className="product-page-page-button px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-all"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, safeCurrentPage + 1))}
                   disabled={safeCurrentPage === totalPages}
-                  className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                  className="product-page-page-button px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-all"
                 >
                   Next
                 </button>
