@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
-import DashboardLayout from "../components/DashboardLayout";
+import DashboardShell from "../components/DashboardShell";
 import {
   EMPTY_REPORT_DATA,
   getApiErrorMessage,
@@ -91,7 +91,7 @@ const Notifications = () => {
   }, [restockSuggestions, severityFilter]);
 
   return (
-    <DashboardLayout>
+    <DashboardShell>
       <div className="notifications-page space-y-6 p-6 lg:p-8">
         <div className="notification-hero flex flex-col gap-4 rounded-[2rem] border border-white/15 bg-white/10 p-6 backdrop-blur-xl xl:flex-row xl:items-end xl:justify-between">
           <div>
@@ -329,7 +329,7 @@ const Notifications = () => {
             })}
         </div>
       </div>
-    </DashboardLayout>
+    </DashboardShell>
   );
 };
 

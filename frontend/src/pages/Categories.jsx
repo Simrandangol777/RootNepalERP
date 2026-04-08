@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import DashboardLayout from "../components/DashboardLayout";
+import DashboardShell from "../components/DashboardShell";
 import AddEditCategoryModal from "../components/AddEditCategoryModal";
-import DeleteConfirmationModal from "../components/DeleteConfirmationModal";
+import DeleteConfirmationModal from "../components/DeleteConfirmationModal.jsx";
 import api from "../api/axios";
 
 const buildApiOrigin = () => {
@@ -217,7 +217,7 @@ const Categories = () => {
   }, [currentPage, safeCurrentPage]);
 
   return (
-    <DashboardLayout>
+    <DashboardShell>
       <div className="category-page p-6 lg:p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -435,7 +435,7 @@ const Categories = () => {
         itemType="category"
         isLoading={isDeleting}
       />
-    </DashboardLayout>
+    </DashboardShell>
   );
 };
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../api/axios";
 import { getAccessToken, getStoredUser, setStoredUser } from "../auth/storage";
-import DashboardLayout from '../components/DashboardLayout';
+import DashboardShell from '../components/DashboardShell';
 
 const buildApiOrigin = () => {
   const envBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -244,7 +244,7 @@ const Profile = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardShell>
       <div className="p-6 lg:p-8">
         {/* Header */}
         <div className="mb-8">
@@ -606,7 +606,7 @@ const Profile = () => {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </DashboardShell>
   );
 };
 

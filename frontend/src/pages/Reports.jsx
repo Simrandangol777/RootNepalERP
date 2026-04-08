@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/axios';
-import DashboardLayout from '../components/DashboardLayout';
+import DashboardShell from '../components/DashboardShell';
 import {
   EMPTY_REPORT_DATA,
   getApiErrorMessage,
@@ -90,7 +90,7 @@ const Reports = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardShell>
       <div className="p-6 lg:p-8">
         {/* Header */}
         <div className="mb-8">
@@ -669,7 +669,7 @@ const Reports = () => {
           </div>
         )}
       </div>
-    </DashboardLayout>
+    </DashboardShell>
   );
 };
 

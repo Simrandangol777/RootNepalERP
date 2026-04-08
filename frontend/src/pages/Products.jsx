@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import DashboardLayout from "../components/DashboardLayout";
+import DashboardShell from "../components/DashboardShell";
 import ProductDetailModal from "../components/ProductDetailModal.jsx";
 import AddEditProductModal from "../components/AddEditProductModal";
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal.jsx';
 import api from "../api/axios";
 
 const buildApiOrigin = () => {
@@ -334,7 +334,7 @@ const Products = () => {
   }, [currentPage, safeCurrentPage]);
 
   return (
-    <DashboardLayout>
+    <DashboardShell>
       <div className="product-page p-6 lg:p-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-white mb-2">Products</h2>
@@ -566,7 +566,7 @@ const Products = () => {
         itemType="product"
         isLoading={isDeleting}
     />
-    </DashboardLayout>
+    </DashboardShell>
   );
 };
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { getAccessToken, getStoredUser, setStoredUser } from "../auth/storage";
-import DashboardLayout from "../components/DashboardLayout";
+import DashboardShell from "../components/DashboardShell";
 
 const buildApiOrigin = () => {
   const envBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -72,7 +72,7 @@ const ProfileOverview = () => {
   }, []);
 
   return (
-    <DashboardLayout>
+    <DashboardShell>
       <div className="p-6 lg:p-8">
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -237,7 +237,7 @@ const ProfileOverview = () => {
           </div>
         )}
       </div>
-    </DashboardLayout>
+    </DashboardShell>
   );
 };
 

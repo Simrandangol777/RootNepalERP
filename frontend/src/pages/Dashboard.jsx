@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import DashboardLayout from "../components/DashboardLayout";
+import DashboardShell from "../components/DashboardShell";
 import api from "../api/axios";
 import {LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, PieChart, Pie, Legend, Cell} from "recharts";
 
@@ -93,7 +93,7 @@ const Dashboard = () => {
   const restockAlerts = Array.isArray(data?.restock_alerts) ? data.restock_alerts : [];
 
   return (
-    <DashboardLayout>
+    <DashboardShell>
       <div className="p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-8">
@@ -442,7 +442,7 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </DashboardShell>
   );
 };
 

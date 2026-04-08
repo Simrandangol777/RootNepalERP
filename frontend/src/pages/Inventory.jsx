@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import DashboardLayout from "../components/DashboardLayout";
+import DashboardShell from "../components/DashboardShell";
 import StockAdjustmentModal from "../components/StockAdjustmentModal";
 import api from "../api/axios";
 
@@ -151,7 +151,7 @@ const Inventory = () => {
   }, [currentPage, safeCurrentPage]);
 
   return (
-    <DashboardLayout>
+    <DashboardShell>
       <div className="p-6 lg:p-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-white mb-2">Inventory</h2>
@@ -330,7 +330,7 @@ const Inventory = () => {
           onSave={handleSaveAdjustment}
         />
       )}
-    </DashboardLayout>
+    </DashboardShell>
   );
 };
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import DashboardLayout from '../components/DashboardLayout';
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
+import DashboardShell from '../components/DashboardShell';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal.jsx';
 import api from '../api/axios';
 import { getStoredUser } from '../auth/storage';
 
@@ -304,7 +304,7 @@ const Sales = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardShell>
       <div className="p-6 lg:p-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-white mb-2">Sales</h2>
@@ -652,7 +652,7 @@ const Sales = () => {
         itemType="sale record"
         isLoading={isDeleting}
       />
-    </DashboardLayout>
+    </DashboardShell>
   );
 };
 
