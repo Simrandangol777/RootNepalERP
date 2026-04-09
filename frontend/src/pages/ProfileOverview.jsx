@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { getAccessToken, getStoredUser, setStoredUser } from "../auth/storage";
-import DashboardShell from "../components/DashboardShell";
+import DashboardLayout from "../components/DashboardLayout";
 
 const buildApiOrigin = () => {
   const envBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -23,9 +23,11 @@ const toMediaUrl = (imagePath) => {
 const ProfileOverview = () => {
   const navigate = useNavigate();
   const storedUser = getStoredUser();
+  const storedUserName = storedUser.name;
+  const storedUserEmail = storedUser.email;
   const [profile, setProfile] = useState({
-    fullName: storedUser.name,
-    email: storedUser.email,
+    fullName: storedUserName,
+    email: storedUserEmail,
     profilePicture: storedUser.avatar || "",
     phone: "",
     company: "",
@@ -57,8 +59,8 @@ const ProfileOverview = () => {
         }));
 
         setStoredUser({
-          name: res.data.fullName ?? storedUser.name,
-          email: res.data.email ?? storedUser.email,
+          name: res.data.fullName ?? storedUserName,
+          email: res.data.email ?? storedUserEmail,
           avatar: profilePicture || null,
         });
       } catch (error) {
@@ -69,10 +71,10 @@ const ProfileOverview = () => {
     };
 
     fetchProfile();
-  }, []);
+  }, [navigate, storedUserEmail, storedUserName]);
 
   return (
-    <DashboardShell>
+    <DashboardLayout>
       <div className="p-6 lg:p-8">
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -237,7 +239,7 @@ const ProfileOverview = () => {
           </div>
         )}
       </div>
-    </DashboardShell>
+    </DashboardLayout>
   );
 };
 

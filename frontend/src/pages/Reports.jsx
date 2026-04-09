@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/axios';
-import DashboardShell from '../components/DashboardShell';
+import DashboardLayout from '../components/DashboardLayout';
 import {
   EMPTY_REPORT_DATA,
   getApiErrorMessage,
@@ -46,25 +46,25 @@ const Reports = () => {
     return (summaryData.grossProfit / summaryData.totalRevenue) * 100;
   }, [summaryData.grossProfit, summaryData.totalRevenue]);
 
-  const fetchReports = async (range = dateFilter) => {
-    setIsFetching(true);
-    try {
-      const res = await api.get('reports/dashboard/', { params: { date_range: range } });
-      setReportData(normalizeReportData(res.data));
-      setMessage((prev) => (prev.type === 'error' ? { type: '', text: '' } : prev));
-    } catch (error) {
-      setReportData(EMPTY_REPORT_DATA);
-      setMessage({
-        type: 'error',
-        text: getApiErrorMessage(error, 'Failed to load reports from server.'),
-      });
-    } finally {
-      setIsFetching(false);
-    }
-  };
-
   useEffect(() => {
-    fetchReports(dateFilter);
+    const fetchReports = async () => {
+      setIsFetching(true);
+      try {
+        const res = await api.get('reports/dashboard/', { params: { date_range: dateFilter } });
+        setReportData(normalizeReportData(res.data));
+        setMessage((prev) => (prev.type === 'error' ? { type: '', text: '' } : prev));
+      } catch (error) {
+        setReportData(EMPTY_REPORT_DATA);
+        setMessage({
+          type: 'error',
+          text: getApiErrorMessage(error, 'Failed to load reports from server.'),
+        });
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    fetchReports();
   }, [dateFilter]);
 
   const handleExportReport = () => {
@@ -90,7 +90,7 @@ const Reports = () => {
   };
 
   return (
-    <DashboardShell>
+    <DashboardLayout>
       <div className="p-6 lg:p-8">
         {/* Header */}
         <div className="mb-8">
@@ -669,7 +669,7 @@ const Reports = () => {
           </div>
         )}
       </div>
-    </DashboardShell>
+    </DashboardLayout>
   );
 };
 

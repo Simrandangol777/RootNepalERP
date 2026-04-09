@@ -40,7 +40,7 @@ const StockAdjustmentModal = ({ product, onClose, onSave }) => {
         reason,
         notes,
       });
-    } catch (err) {
+    } catch {
       setError("Failed to apply stock adjustment.");
     } finally {
       setIsLoading(false);

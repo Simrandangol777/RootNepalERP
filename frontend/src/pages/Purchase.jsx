@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import DashboardShell from '../components/DashboardShell';
+import DashboardLayout from '../components/DashboardLayout';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal.jsx';
 import api from '../api/axios';
 
@@ -525,7 +525,7 @@ const Purchase = () => {
   };
 
   return (
-    <DashboardShell>
+    <DashboardLayout>
       <div className="p-6 lg:p-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-white mb-2">Purchases</h2>
@@ -1220,7 +1220,7 @@ const Purchase = () => {
         itemType="purchase record"
         isLoading={isDeleting}
       />
-    </DashboardShell>
+    </DashboardLayout>
   );
 };
 

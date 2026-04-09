@@ -1,8 +1,18 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import DashboardShell from "../components/DashboardShell";
+import DashboardLayout from "../components/DashboardLayout";
 import api from "../api/axios";
 import {LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, PieChart, Pie, Legend, Cell} from "recharts";
+
+const FILTER_MAP = {
+  "Today": "today",
+  "This Week": "this_week",
+  "Last 7 days": "last_7_days",
+  "This Month": "this_month",
+  "Last 30 days": "last_30_days",
+  "Last 6 months": "last_6_months",
+  "All Time": "all_time",
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -12,21 +22,11 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const filterMap = {
-    "Today": "today",
-    "This Week": "this_week",
-    "Last 7 days": "last_7_days",
-    "This Month": "this_month",
-    "Last 30 days": "last_30_days",
-    "Last 6 months": "last_6_months",
-    "All Time": "all_time",
-  };
-
-  const fetchDashboard = async (selectedFilter) => {
+  const fetchDashboard = useCallback(async (selectedFilter) => {
     setIsLoading(true);
     setError("");
     try {
-      const dateRange = filterMap[selectedFilter] || "all_time";
+      const dateRange = FILTER_MAP[selectedFilter] || "all_time";
       const res = await api.get("dashboard/overview/", {
         params: { date_range: dateRange },
       });
@@ -37,11 +37,11 @@ const Dashboard = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDashboard(filter);
-  }, [filter]);
+  }, [fetchDashboard, filter]);
 
   /* ---------------- KPI DATA ---------------- */
   const kpis = {
@@ -93,7 +93,7 @@ const Dashboard = () => {
   const restockAlerts = Array.isArray(data?.restock_alerts) ? data.restock_alerts : [];
 
   return (
-    <DashboardShell>
+    <DashboardLayout>
       <div className="p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-8">
@@ -442,7 +442,7 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-    </DashboardShell>
+    </DashboardLayout>
   );
 };
 

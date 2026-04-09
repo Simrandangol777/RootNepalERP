@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../api/axios";
 import { getAccessToken, getStoredUser, setStoredUser } from "../auth/storage";
-import DashboardShell from '../components/DashboardShell';
+import DashboardLayout from '../components/DashboardLayout';
 
 const buildApiOrigin = () => {
   const envBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -21,6 +21,8 @@ const toMediaUrl = (imagePath) => {
 
 const Profile = () => {
   const storedUser = getStoredUser();
+  const storedUserName = storedUser.name;
+  const storedUserEmail = storedUser.email;
   const profilePictureInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('edit-profile');
   const [isLoading, setIsLoading] = useState(false);
@@ -31,8 +33,8 @@ const Profile = () => {
 
   // Edit Profile Form State
   const [profileData, setProfileData] = useState({
-    fullName: storedUser.name,
-    email: storedUser.email,
+    fullName: storedUserName,
+    email: storedUserEmail,
     phone: '',
     company: '',
     role: 'Administrator',
@@ -86,8 +88,8 @@ const Profile = () => {
         setProfilePicturePreview(profilePicture);
         setRemoveProfilePicture(false);
         setStoredUser({
-          name: res.data.fullName ?? storedUser.name,
-          email: res.data.email ?? storedUser.email,
+          name: res.data.fullName ?? storedUserName,
+          email: res.data.email ?? storedUserEmail,
           avatar: profilePicture || null,
         });
       } catch (err) {
@@ -105,7 +107,7 @@ const Profile = () => {
     };
 
     fetchProfile();
-  }, []);
+  }, [storedUserEmail, storedUserName]);
 
   const handleProfileChange = (e) => {
     setProfileData({
@@ -244,7 +246,7 @@ const Profile = () => {
   };
 
   return (
-    <DashboardShell>
+    <DashboardLayout>
       <div className="p-6 lg:p-8">
         {/* Header */}
         <div className="mb-8">
@@ -606,7 +608,7 @@ const Profile = () => {
           </div>
         </div>
       </div>
-    </DashboardShell>
+    </DashboardLayout>
   );
 };
 

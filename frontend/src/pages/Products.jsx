@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import DashboardShell from "../components/DashboardShell";
+import DashboardLayout from "../components/DashboardLayout";
 import ProductDetailModal from "../components/ProductDetailModal.jsx";
 import AddEditProductModal from "../components/AddEditProductModal";
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal.jsx';
@@ -197,7 +197,7 @@ const Products = () => {
     }
 
     navigate(location.pathname, { replace: true, state: {} });
-  }, [location.state]);
+  }, [location.pathname, location.state, navigate]);
 
   const categories = useMemo(() => {
     const dynamic = Array.from(
@@ -291,25 +291,21 @@ const Products = () => {
       supplier: supplierId,
     });
 
-    try {
-      if (editingProduct) {
-        await api.patch(`products/${editingProduct.id}/`, payload, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        setMessage({ type: "success", text: "Product updated successfully." });
-      } else {
-        await api.post("products/", payload, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        setMessage({ type: "success", text: "Product added successfully." });
-      }
-
-      await fetchProducts();
-      setIsAddEditModalOpen(false);
-      setEditingProduct(null);
-    } catch (error) {
-      throw error;
+    if (editingProduct) {
+      await api.patch(`products/${editingProduct.id}/`, payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setMessage({ type: "success", text: "Product updated successfully." });
+    } else {
+      await api.post("products/", payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setMessage({ type: "success", text: "Product added successfully." });
     }
+
+    await fetchProducts();
+    setIsAddEditModalOpen(false);
+    setEditingProduct(null);
   };
 
   const filteredProducts = products.filter((product) => {
@@ -334,7 +330,7 @@ const Products = () => {
   }, [currentPage, safeCurrentPage]);
 
   return (
-    <DashboardShell>
+    <DashboardLayout>
       <div className="product-page p-6 lg:p-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-white mb-2">Products</h2>
@@ -566,7 +562,7 @@ const Products = () => {
         itemType="product"
         isLoading={isDeleting}
     />
-    </DashboardShell>
+    </DashboardLayout>
   );
 };
 
