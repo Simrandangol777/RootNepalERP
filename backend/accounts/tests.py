@@ -114,7 +114,19 @@ class AccountsAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["message"], "Email already exists.")
+        self.assertIn("email", response.data)
+
+    def test_profile_patch_rejects_invalid_email_format(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.patch(
+            "/api/auth/profile/",
+            {"email": "not-an-email"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data)
 
     def test_change_password_updates_credentials(self):
         self.client.force_authenticate(self.user)
@@ -154,3 +166,21 @@ class AccountsAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["message"], "Current password is incorrect.")
+
+    def test_change_password_rejects_reusing_current_password(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            "/api/auth/change-password/",
+            {
+                "currentPassword": self.password,
+                "newPassword": self.password,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["message"],
+            "New password must be different from the current password.",
+        )

@@ -4,7 +4,6 @@ from django.db.models import Sum, F, Count, FloatField, ExpressionWrapper
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from rest_framework import viewsets, filters, status
-from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -90,38 +89,37 @@ class StockAdjustmentView(APIView):
     @transaction.atomic
     def post(self, request):
         serializer = StockAdjustmentSerializer(data=request.data)
-        if serializer.is_valid():
-            product = serializer.validated_data["product"]
-            adjustment_type = serializer.validated_data["adjustmentType"]
-            quantity = serializer.validated_data["quantity"]
-            reason = serializer.validated_data.get("reason", "")
-            notes = serializer.validated_data.get("notes", "")
+        serializer.is_valid(raise_exception=True)
 
-            if adjustment_type == "increase":
-                product.stock += quantity
-            else:
-                product.stock -= quantity
+        product = serializer.validated_data["product"]
+        adjustment_type = serializer.validated_data["adjustmentType"]
+        quantity = serializer.validated_data["quantity"]
+        reason = serializer.validated_data.get("reason", "")
+        notes = serializer.validated_data.get("notes", "")
 
-            product.save()
+        if adjustment_type == "increase":
+            product.stock += quantity
+        else:
+            product.stock -= quantity
 
-            StockAdjustment.objects.create(
-                product=product,
-                adjustment_type=adjustment_type,
-                quantity=quantity,
-                reason=reason,
-                notes=notes,
-            )
+        product.save(update_fields=["stock"])
 
-            return Response(
-                {
-                    "message": "Stock adjusted successfully.",
-                    "product_id": product.id,
-                    "new_stock": product.stock,
-                },
-                status=status.HTTP_200_OK,
-            )
+        StockAdjustment.objects.create(
+            product=product,
+            adjustment_type=adjustment_type,
+            quantity=quantity,
+            reason=reason,
+            notes=notes,
+        )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "message": "Stock adjusted successfully.",
+                "product_id": product.id,
+                "new_stock": product.stock,
+            },
+            status=status.HTTP_200_OK,
+        )
     
 class SalesListCreateView(APIView):
     @transaction.atomic
@@ -133,8 +131,7 @@ class SalesListCreateView(APIView):
     @transaction.atomic
     def post(self, request):
         serializer = SaleCreateSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
 
         sale_items = serializer.validated_data["saleItems"]
         payment_method = serializer.validated_data["paymentMethod"]
@@ -161,9 +158,6 @@ class SalesListCreateView(APIView):
 
             line_subtotal = Decimal(selling_price) * quantity
             line_total = line_subtotal - Decimal(discount)
-
-            if line_total < 0:
-                raise ValidationError({"discount": "Discount cannot exceed line subtotal."})
 
             SaleItem.objects.create(
                 sale=sale,
@@ -247,10 +241,9 @@ class SupplierListCreateView(APIView):
 
     def post(self, request):
         serializer = SupplierSerializer(data=request.data)
-        if serializer.is_valid():
-            supplier = serializer.save()
-            return Response(SupplierSerializer(supplier).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        supplier = serializer.save()
+        return Response(SupplierSerializer(supplier).data, status=status.HTTP_201_CREATED)
 
 
 class PurchaseListCreateView(APIView):
@@ -267,12 +260,11 @@ class PurchaseListCreateView(APIView):
     @transaction.atomic
     def post(self, request):
         serializer = PurchaseCreateSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
 
-        supplier_id = data.get("supplier")
+        supplier = data.get("supplier_obj")
         new_supplier_name = (data.get("newSupplier") or "").strip()
         new_supplier_email = (data.get("newSupplierEmail") or "").strip()
         new_supplier_phone = (data.get("newSupplierPhone") or "").strip()
@@ -281,23 +273,19 @@ class PurchaseListCreateView(APIView):
         new_supplier_lead_time = data.get("newSupplierLeadTimeDays") or 0
         new_supplier_min_order = data.get("newSupplierMinimumOrderQuantity") or 0
 
-        if supplier_id:
-            try:
-                supplier = Supplier.objects.get(id=supplier_id)
-            except Supplier.DoesNotExist:
-                return Response({"supplier": "Supplier not found."}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            supplier, created = Supplier.objects.get_or_create(
-                name=new_supplier_name,
-                defaults={
-                    "email": new_supplier_email,
-                    "phone": new_supplier_phone,
-                    "company": new_supplier_company,
-                    "address": new_supplier_address,
-                    "lead_time_days": new_supplier_lead_time,
-                    "minimum_order_quantity": new_supplier_min_order,
-                },
-            )
+        if supplier is None:
+            supplier = Supplier.objects.filter(name__iexact=new_supplier_name).first()
+            created = supplier is None
+            if created:
+                supplier = Supplier.objects.create(
+                    name=new_supplier_name,
+                    email=new_supplier_email,
+                    phone=new_supplier_phone,
+                    company=new_supplier_company,
+                    address=new_supplier_address,
+                    lead_time_days=new_supplier_lead_time,
+                    minimum_order_quantity=new_supplier_min_order,
+                )
 
             if not created:
                 updates = {}
@@ -343,11 +331,6 @@ class PurchaseListCreateView(APIView):
             discount = Decimal(item["discount"])
 
             line_total = (cost_price * quantity) - discount
-            if line_total < 0:
-                return Response(
-                    {"discount": "Discount cannot exceed line total."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
             PurchaseItem.objects.create(
                 purchase=purchase,
@@ -420,8 +403,7 @@ class PurchaseDetailView(APIView):
             )
 
         serializer = PurchaseUpdateSerializer(data=request.data, partial=True)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
         new_payment_method = data.get("paymentMethod", purchase.payment_method)

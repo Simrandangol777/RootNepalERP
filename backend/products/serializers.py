@@ -1,6 +1,5 @@
 from decimal import Decimal
 import re
-from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework import serializers
 from .models import Category, Product, StockAdjustment, Sale, SaleItem, Supplier, Purchase, PurchaseItem
@@ -24,6 +23,21 @@ class CategorySerializer(serializers.ModelSerializer):
             "updatedBy",
             "product_count",
         ]
+
+    def validate_name(self, value):
+        normalized = value.strip()
+        if not normalized:
+            raise serializers.ValidationError("Category name is required.")
+
+        queryset = Category.objects.filter(name__iexact=normalized)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("Category name already exists.")
+        return normalized
+
+    def validate_description(self, value):
+        return value.strip()
 
     def get_updatedDate(self, obj):
         return obj.updated_at.isoformat() if obj.updated_at else ""
@@ -92,25 +106,43 @@ class ProductSerializer(serializers.ModelSerializer):
                 "error_messages": {
                     "unique": "SKU Number already exists.",
                 }
-            }
+            },
+            "price": {"min_value": Decimal("0.00")},
+            "cost_price": {"min_value": Decimal("0.00")},
+            "selling_price": {"min_value": Decimal("0.00")},
+            "stock": {"min_value": 0},
+            "reorder_level": {"min_value": 0},
         }
 
     def validate(self, attrs):
-        cost = attrs.get("cost_price")
-        selling = attrs.get("selling_price", attrs.get("price"))
-
         if "price" in attrs and "selling_price" not in attrs:
             attrs["selling_price"] = attrs["price"]
         if "selling_price" in attrs and "price" not in attrs:
             attrs["price"] = attrs["selling_price"]
 
+        cost = attrs.get("cost_price", getattr(self.instance, "cost_price", None))
+        selling = attrs.get(
+            "selling_price",
+            attrs.get("price", getattr(self.instance, "selling_price", getattr(self.instance, "price", None))),
+        )
+
         if cost is not None and selling is not None:
-            if cost < 0 or selling < 0:
-                raise serializers.ValidationError("Prices must be non-negative.")
             if selling < cost:
                 raise serializers.ValidationError({"selling_price": "Selling price cannot be lower than cost price."})
 
         return attrs
+
+    def validate_name(self, value):
+        normalized = value.strip()
+        if not normalized:
+            raise serializers.ValidationError("Product name is required.")
+        return normalized
+
+    def validate_description(self, value):
+        return value.strip()
+
+    def validate_tags(self, value):
+        return ", ".join(part.strip() for part in value.split(",") if part.strip())
 
     def get_updatedDate(self, obj):
         return obj.updated_at.isoformat() if obj.updated_at else ""
@@ -123,6 +155,12 @@ class ProductSerializer(serializers.ModelSerializer):
         normalized = value.strip().upper()
         if not re.fullmatch(r"SK-[A-Z0-9]{3}", normalized):
             raise serializers.ValidationError('SKU must be in "SK-XXX" format.')
+
+        queryset = Product.objects.filter(sku_number__iexact=normalized)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("SKU Number already exists.")
         return normalized
 
     def _pop_supplier_details(self, validated_data):
@@ -225,18 +263,22 @@ class StockAdjustmentSerializer(serializers.Serializer):
                 "quantity": "Cannot decrease more than current stock."
             })
 
+        attrs["reason"] = (attrs.get("reason") or "").strip()
+        attrs["notes"] = (attrs.get("notes") or "").strip()
         attrs["product"] = product
         return attrs
     
 class SaleItemWriteSerializer(serializers.Serializer):
     product = serializers.IntegerField()
-    sellingPrice = serializers.DecimalField(max_digits=10, decimal_places=2)
+    sellingPrice = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.01"))
     quantity = serializers.IntegerField(min_value=1)
     discount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, default=0)
 
     def validate(self, attrs):
         product_id = attrs["product"]
         quantity = attrs["quantity"]
+        selling_price = attrs["sellingPrice"]
+        discount = attrs["discount"]
 
         try:
             product = Product.objects.get(id=product_id)
@@ -247,6 +289,9 @@ class SaleItemWriteSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"quantity": f"Not enough stock for {product.name}. Available stock is {product.stock}."}
             )
+
+        if discount > selling_price * quantity:
+            raise serializers.ValidationError({"discount": "Discount cannot exceed line subtotal."})
 
         attrs["product_obj"] = product
         return attrs
@@ -261,6 +306,31 @@ class SaleCreateSerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError("At least one sale item is required.")
         return value
+
+    def validate_customerName(self, value):
+        return value.strip()
+
+    def validate(self, attrs):
+        requested_by_product = {}
+
+        for item in attrs.get("saleItems", []):
+            product = item["product_obj"]
+            requested_by_product.setdefault(product.id, {"product": product, "quantity": 0})
+            requested_by_product[product.id]["quantity"] += item["quantity"]
+
+        for item in requested_by_product.values():
+            product = item["product"]
+            if item["quantity"] > product.stock:
+                raise serializers.ValidationError(
+                    {
+                        "saleItems": (
+                            f"Total quantity for {product.name} exceeds available stock of "
+                            f"{product.stock}."
+                        )
+                    }
+                )
+
+        return attrs
 
 
 class SaleItemReadSerializer(serializers.ModelSerializer):
@@ -361,20 +431,47 @@ class SupplierSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
+    def validate_name(self, value):
+        normalized = value.strip()
+        if not normalized:
+            raise serializers.ValidationError("Supplier name is required.")
+
+        queryset = Supplier.objects.filter(name__iexact=normalized)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("Supplier name already exists.")
+        return normalized
+
+    def validate_phone(self, value):
+        return value.strip()
+
+    def validate_company(self, value):
+        return value.strip()
+
+    def validate_address(self, value):
+        return value.strip()
+
 
 class PurchaseItemWriteSerializer(serializers.Serializer):
     product = serializers.IntegerField()
-    costPrice = serializers.DecimalField(max_digits=10, decimal_places=2)
+    costPrice = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.01"))
     quantity = serializers.IntegerField(min_value=1)
     discount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, default=0)
 
     def validate(self, attrs):
         product_id = attrs["product"]
+        cost_price = attrs["costPrice"]
+        quantity = attrs["quantity"]
+        discount = attrs["discount"]
 
         try:
             product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
             raise serializers.ValidationError({"product": "Selected product does not exist."})
+
+        if discount > cost_price * quantity:
+            raise serializers.ValidationError({"discount": "Discount cannot exceed line total."})
 
         attrs["product_obj"] = product
         return attrs
@@ -395,26 +492,46 @@ class PurchaseCreateSerializer(serializers.Serializer):
     purchaseStatus = serializers.ChoiceField(choices=["Pending", "Received", "Cancelled"])
     notes = serializers.CharField(required=False, allow_blank=True)
 
-    shipping = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0)
-    tax = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0)
-    otherCharges = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0)
+    shipping = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0, min_value=0)
+    tax = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0, min_value=0)
+    otherCharges = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0, min_value=0)
 
     purchaseItems = PurchaseItemWriteSerializer(many=True)
 
     def validate_invoiceNumber(self, value):
-        if Purchase.objects.filter(invoice_number=value).exists():
+        normalized = value.strip()
+        if not normalized:
+            raise serializers.ValidationError("Invoice number is required.")
+
+        if Purchase.objects.filter(invoice_number__iexact=normalized).exists():
             raise serializers.ValidationError("Invoice number already exists.")
-        return value
+        return normalized
+
+    def validate_newSupplier(self, value):
+        return value.strip()
 
     def validate(self, attrs):
         supplier_id = attrs.get("supplier")
         new_supplier = (attrs.get("newSupplier") or "").strip()
 
-        if not supplier_id and not new_supplier:
-            raise serializers.ValidationError("Please select an existing supplier or enter a new supplier.")
+        if supplier_id and new_supplier:
+            raise serializers.ValidationError(
+                {"supplier": "Choose either an existing supplier or enter a new supplier."}
+            )
+
+        if supplier_id:
+            try:
+                supplier = Supplier.objects.get(id=supplier_id, is_active=True)
+            except Supplier.DoesNotExist:
+                raise serializers.ValidationError({"supplier": "Supplier not found."})
+            attrs["supplier_obj"] = supplier
+        elif not new_supplier:
+            raise serializers.ValidationError(
+                {"supplier": "Please select an existing supplier or enter a new supplier."}
+            )
 
         if not attrs.get("purchaseItems"):
-            raise serializers.ValidationError("At least one purchase item is required.")
+            raise serializers.ValidationError({"purchaseItems": "At least one purchase item is required."})
 
         return attrs
 

@@ -163,6 +163,20 @@ class ProductsAPITestCase(APITestCase):
         self.assertEqual(adjustment.adjustment_type, "increase")
         self.assertEqual(adjustment.reason, "Restock")
 
+    def test_stock_adjustment_rejects_unknown_product(self):
+        response = self.client.post(
+            "/api/inventory/adjust/",
+            {
+                "productId": 9999,
+                "adjustmentType": "increase",
+                "quantity": 1,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("productId", response.data)
+
     def test_sale_creation_decreases_stock_and_returns_sale_details(self):
         self.authenticate()
         product = self.create_product(stock=10, sku_number="SK-AAC")
@@ -198,6 +212,38 @@ class ProductsAPITestCase(APITestCase):
                 reason="Sale recorded",
             ).exists()
         )
+
+    def test_sale_creation_rejects_duplicate_items_when_total_exceeds_stock(self):
+        self.authenticate()
+        product = self.create_product(stock=5, sku_number="SK-AAI")
+
+        response = self.client.post(
+            "/api/sales/",
+            {
+                "saleItems": [
+                    {
+                        "product": product.id,
+                        "sellingPrice": "15.00",
+                        "quantity": 3,
+                        "discount": "0.00",
+                    },
+                    {
+                        "product": product.id,
+                        "sellingPrice": "15.00",
+                        "quantity": 3,
+                        "discount": "0.00",
+                    },
+                ],
+                "paymentMethod": "Cash",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("saleItems", response.data)
+        product.refresh_from_db()
+        self.assertEqual(product.stock, 5)
+        self.assertFalse(Sale.objects.exists())
 
     def test_sale_delete_restores_stock(self):
         product = self.create_product(stock=7, sku_number="SK-AAD")
@@ -276,6 +322,62 @@ class ProductsAPITestCase(APITestCase):
                 reason="Purchase received",
             ).exists()
         )
+
+    def test_purchase_create_rejects_discount_greater_than_line_total(self):
+        self.authenticate()
+        product = self.create_product(stock=4, sku_number="SK-AAJ")
+
+        response = self.client.post(
+            "/api/purchases/",
+            {
+                "supplier": self.supplier.id,
+                "purchaseDate": str(date.today()),
+                "invoiceNumber": "INV-101A",
+                "paymentMethod": "Cash",
+                "purchaseStatus": "Pending",
+                "purchaseItems": [
+                    {
+                        "product": product.id,
+                        "costPrice": "8.00",
+                        "quantity": 1,
+                        "discount": "10.00",
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("purchaseItems", response.data)
+        self.assertFalse(Purchase.objects.filter(invoice_number="INV-101A").exists())
+
+    def test_purchase_create_rejects_inactive_supplier(self):
+        self.authenticate()
+        product = self.create_product(stock=4, sku_number="SK-AAK")
+        inactive_supplier = Supplier.objects.create(name="Inactive Supplier", is_active=False)
+
+        response = self.client.post(
+            "/api/purchases/",
+            {
+                "supplier": inactive_supplier.id,
+                "purchaseDate": str(date.today()),
+                "invoiceNumber": "INV-101B",
+                "paymentMethod": "Cash",
+                "purchaseStatus": "Pending",
+                "purchaseItems": [
+                    {
+                        "product": product.id,
+                        "costPrice": "8.00",
+                        "quantity": 1,
+                        "discount": "0.00",
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("supplier", response.data)
 
     def test_pending_purchase_patch_to_received_increases_stock(self):
         product = self.create_product(stock=5, sku_number="SK-AAF")

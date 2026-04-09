@@ -10,9 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import importlib.util
+import os
 from pathlib import Path
 from datetime import timedelta
-import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,17 +42,20 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django_extensions",
     "rest_framework",
-    "corsheaders",
     "accounts",
     "products",
     "dashboard",
     "ml",
 ]
 
+HAS_CORSHEADERS = importlib.util.find_spec("corsheaders") is not None
+if importlib.util.find_spec("django_extensions") is not None:
+    INSTALLED_APPS.append("django_extensions")
+if HAS_CORSHEADERS:
+    INSTALLED_APPS.append("corsheaders")
+
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -60,6 +64,9 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+if HAS_CORSHEADERS:
+    MIDDLEWARE.insert(0, "corsheaders.middleware.CorsMiddleware")
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -75,6 +82,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+    "EXCEPTION_HANDLER": "config.exceptions.custom_exception_handler",
 }
 
 SIMPLE_JWT = {
