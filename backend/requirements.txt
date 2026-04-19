@@ -17,3 +17,8 @@ scipy==1.17.1
 six==1.17.0
 sqlparse==0.5.5
 threadpoolctl==3.6.0
+gunicorn==22.0.0
+whitenoise==6.6.0
+python-decouple==3.8
+drf-spectacular==0.27.0
+dj-database-url==2.1.0
