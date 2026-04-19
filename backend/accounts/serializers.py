@@ -16,7 +16,7 @@ class RegisterSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         email = value.strip().lower()
-        if User.objects.filter(email__iexact=email).exists():
+        if User.objects.filter(email=email).exists():
             raise serializers.ValidationError("Email already exists.")
         return email
 
@@ -53,7 +53,8 @@ class RegisterSerializer(serializers.Serializer):
         profile.save()
 
         return user
-    
+
+
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False, write_only=True)
@@ -63,7 +64,7 @@ class LoginSerializer(serializers.Serializer):
         password = attrs.get("password") or ""
 
         if not email or not password:
-            raise serializers.ValidationError({"message": "Email and password are required."})
+            raise serializers.ValidationError("Email and password are required.")
 
         attrs["email"] = email
         attrs["password"] = password
@@ -81,16 +82,17 @@ class ProfileUpdateSerializer(serializers.Serializer):
     removeProfilePicture = serializers.BooleanField(required=False, default=False)
 
     def validate_fullName(self, value):
+        if not value:
+            return value
         full_name = value.strip()
-        if not full_name:
-            raise serializers.ValidationError("Full name is required.")
+        if full_name and len(full_name) < 2:
+            raise serializers.ValidationError("Full name must be at least 2 characters long.")
         return full_name
 
     def validate_email(self, value):
+        if not value:
+            return value
         normalized_email = value.strip().lower()
-        if not normalized_email:
-            raise serializers.ValidationError("Email is required.")
-
         user = self.instance
         email_exists = (
             User.objects.filter(email__iexact=normalized_email)
@@ -102,20 +104,20 @@ class ProfileUpdateSerializer(serializers.Serializer):
         return normalized_email
 
     def validate_company(self, value):
-        return value.strip()
+        return value.strip() if value else value
 
     def validate_phone(self, value):
-        return value.strip()
+        return value.strip() if value else value
 
     def validate_role(self, value):
-        return value.strip()
+        return value.strip() if value else value
 
     def validate_address(self, value):
-        return value.strip()
+        return value.strip() if value else value
 
     def validate(self, attrs):
         if not attrs:
-            raise serializers.ValidationError({"message": "Provide at least one field to update."})
+            raise serializers.ValidationError("Provide at least one field to update.")
         return attrs
 
     def update(self, instance, validated_data):
@@ -158,44 +160,40 @@ class ProfileUpdateSerializer(serializers.Serializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    currentPassword = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False, write_only=True)
-    newPassword = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False, write_only=True)
+    currentPassword = serializers.CharField(required=True, trim_whitespace=False, write_only=True)
+    newPassword = serializers.CharField(required=True, trim_whitespace=False, write_only=True)
+
+    def validate_currentPassword(self, value):
+        if not value:
+            raise serializers.ValidationError("Current password is required.")
+        user = self.context.get("request").user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Current password is incorrect.")
+        return value
+
+    def validate_newPassword(self, value):
+        if not value:
+            raise serializers.ValidationError("New password is required.")
+        if not re.match(PASSWORD_REGEX, value):
+            raise serializers.ValidationError(
+                "Password must be at least 8 characters and include 1 uppercase, "
+                "1 lowercase, 1 number, and 1 special character."
+            )
+        try:
+            user = self.context.get("request").user
+            validate_password(value, user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(" ".join(exc.messages)) from exc
+        return value
 
     def validate(self, attrs):
-        current_password = attrs.get("currentPassword") or ""
-        new_password = attrs.get("newPassword") or ""
-        user = self.context["request"].user
-
-        if not current_password or not new_password:
-            raise serializers.ValidationError(
-                {"message": "Current password and new password are required."}
-            )
-
-        if not user.check_password(current_password):
-            raise serializers.ValidationError({"message": "Current password is incorrect."})
+        current_password = attrs.get("currentPassword")
+        new_password = attrs.get("newPassword")
 
         if current_password == new_password:
-            raise serializers.ValidationError(
-                {"message": "New password must be different from the current password."}
-            )
+            raise serializers.ValidationError("New password must be different from the current password.")
 
-        if not re.match(PASSWORD_REGEX, new_password):
-            raise serializers.ValidationError(
-                {
-                    "message": (
-                        "Password must be at least 8 characters and include 1 uppercase, "
-                        "1 lowercase, 1 number, and 1 special character."
-                    )
-                }
-            )
-
-        try:
-            validate_password(new_password, user=user)
-        except DjangoValidationError as exc:
-            raise serializers.ValidationError({"message": " ".join(exc.messages)}) from exc
-
-        attrs["newPassword"] = new_password
-        return attrs    
+        return attrs
 
 
 class UserMeSerializer(serializers.ModelSerializer):
