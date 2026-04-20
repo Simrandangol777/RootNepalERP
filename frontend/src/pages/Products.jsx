@@ -231,14 +231,15 @@ const Products = () => {
   const handleDeleteConfirm = async () => {
     if (!deletingProduct) return;
 
+    const productToDelete = deletingProduct;
+    setIsDeleteModalOpen(false);
+    setDeletingProduct(null);
     setIsDeleting(true);
 
     try {
-      await api.delete(`products/${deletingProduct.id}/`);
-      setProducts((prev) => prev.filter((product) => product.id !== deletingProduct.id));
+      await api.delete(`products/${productToDelete.id}/`);
+      setProducts((prev) => prev.filter((product) => product.id !== productToDelete.id));
       setMessage({ type: "success", text: "Product deleted successfully." });
-      setIsDeleteModalOpen(false);
-      setDeletingProduct(null);
     } catch (error) {
       setMessage({
         type: "error",

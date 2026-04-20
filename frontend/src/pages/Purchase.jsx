@@ -429,12 +429,13 @@ const Purchase = () => {
   const handleDeleteConfirm = async () => {
     if (!deletingPurchase) return;
 
+    const purchaseToDelete = deletingPurchase;
+    setIsDeleteModalOpen(false);
+    setDeletingPurchase(null);
     setIsDeleting(true);
     try {
-      await api.delete(`purchases/${deletingPurchase.id}/delete/`);
+      await api.delete(`purchases/${purchaseToDelete.id}/delete/`);
       await Promise.all([fetchPurchases(), fetchProducts()]);
-      setIsDeleteModalOpen(false);
-      setDeletingPurchase(null);
       setMessage({ type: 'success', text: 'Purchase deleted successfully.' });
     } catch (error) {
       setMessage({

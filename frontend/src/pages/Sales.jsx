@@ -286,12 +286,13 @@ const Sales = () => {
   const handleDeleteConfirm = async () => {
     if (!deletingSale) return;
 
+    const saleToDelete = deletingSale;
+    setIsDeleteModalOpen(false);
+    setDeletingSale(null);
     setIsDeleting(true);
     try {
-      await api.delete(`sales/${deletingSale.id}/delete/`);
+      await api.delete(`sales/${saleToDelete.id}/delete/`);
       await Promise.all([fetchSalesHistory(), fetchProducts()]);
-      setIsDeleteModalOpen(false);
-      setDeletingSale(null);
       setMessage({ type: 'success', text: 'Sale deleted successfully.' });
     } catch (error) {
       setMessage({

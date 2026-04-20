@@ -149,12 +149,13 @@ const Categories = () => {
   const handleDeleteConfirm = async () => {
     if (!deletingCategory) return;
 
+    const categoryToDelete = deletingCategory;
+    setIsDeleteModalOpen(false);
+    setDeletingCategory(null);
     setIsDeleting(true);
     try {
-      await api.delete(`categories/${deletingCategory.id}/`);
-      setCategories((prev) => prev.filter((c) => c.id !== deletingCategory.id));
-      setIsDeleteModalOpen(false);
-      setDeletingCategory(null);
+      await api.delete(`categories/${categoryToDelete.id}/`);
+      setCategories((prev) => prev.filter((c) => c.id !== categoryToDelete.id));
       setMessage({ type: "success", text: "Category deleted successfully." });
     } catch (error) {
       setMessage({

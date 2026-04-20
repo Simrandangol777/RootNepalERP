@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.db.models import Sum, F, FloatField, ExpressionWrapper
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
-from products.models import Product, Sale, SaleItem, Purchase, PurchaseItem
+from products.models import Product, Sale, SaleItem, Purchase, PurchaseItem, StockAdjustment
 
 
 class DashboardOverviewView(APIView):
@@ -123,6 +123,51 @@ class DashboardOverviewView(APIView):
             for month_start in months
         ]
 
+        # INVENTORY VALUE TREND (last 6 months)
+        inventory_delta_map = {month_start: 0.0 for month_start in months}
+
+        inventory_adjustments = (
+            StockAdjustment.objects
+            .filter(created_at__date__gte=months[0])
+            .annotate(month=TruncMonth("created_at"))
+            .values("month", "adjustment_type")
+            .annotate(
+                value_delta=Sum(
+                    ExpressionWrapper(
+                        F("quantity") * F("product__price"),
+                        output_field=FloatField(),
+                    )
+                )
+            )
+        )
+
+        for item in inventory_adjustments:
+            month_value = item.get("month")
+            if not month_value:
+                continue
+
+            month_start = month_value if isinstance(month_value, date) else month_value.date()
+            if month_start not in inventory_delta_map:
+                continue
+
+            direction = 1 if item["adjustment_type"] == "increase" else -1
+            inventory_delta_map[month_start] += direction * float(item["value_delta"] or 0)
+
+        month_end_inventory_value = {}
+        running_inventory_value = float(inventory_value or 0)
+
+        for month_start in reversed(months):
+            month_end_inventory_value[month_start] = round(running_inventory_value, 2)
+            running_inventory_value -= inventory_delta_map[month_start]
+
+        inventory_trend = [
+            {
+                "month": month_start.strftime("%b"),
+                "value": month_end_inventory_value.get(month_start, round(float(inventory_value or 0), 2)),
+            }
+            for month_start in months
+        ]
+
         # STOCK STATUS
         healthy = Product.objects.filter(stock__gt=F("reorder_level")).count()
 
@@ -201,7 +246,7 @@ class DashboardOverviewView(APIView):
                 "out_of_stock": out_of_stock
             },
             "sales_trend": sales_trend,
-            "inventory_trend": [],
+            "inventory_trend": inventory_trend,
             "payment_distribution": payment_distribution,
             "top_products": top_products_data,
             "stock_status": stock_status,

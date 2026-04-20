@@ -39,15 +39,27 @@ class DashboardOverviewTests(APITestCase):
         )
 
     def test_overview_returns_expected_sections(self):
-        response = self.client.get("/api/dashboard/overview/")
+        response = self.client.get("/api/dashboard/overview/", secure=True)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("kpis", response.data)
         self.assertIn("sales_trend", response.data)
+        self.assertIn("inventory_trend", response.data)
         self.assertIn("payment_distribution", response.data)
         self.assertIn("top_products", response.data)
         self.assertIn("restock_alerts", response.data)
         self.assertIn("activities", response.data)
+
+    def test_overview_inventory_trend_is_not_empty(self):
+        response = self.client.get("/api/dashboard/overview/", secure=True)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("inventory_trend", response.data)
+        self.assertEqual(len(response.data["inventory_trend"]), 6)
+
+        for point in response.data["inventory_trend"]:
+            self.assertIn("month", point)
+            self.assertIn("value", point)
 
     def test_overview_date_range_filters_sales_and_purchases(self):
         recent_sale = Sale.objects.create(
@@ -125,7 +137,7 @@ class DashboardOverviewTests(APITestCase):
             line_total=Decimal("30.00"),
         )
 
-        response = self.client.get("/api/dashboard/overview/?date_range=last_30_days")
+        response = self.client.get("/api/dashboard/overview/?date_range=last_30_days", secure=True)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(Decimal(str(response.data["kpis"]["revenue"])), Decimal("20"))
