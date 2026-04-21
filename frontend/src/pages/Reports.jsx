@@ -9,6 +9,115 @@ import {
   toNumber,
 } from '../utils/reportData';
 
+const DEFAULT_LEAD_TIME_DAYS = 7;
+
+const getLeadTimeDays = (item) => {
+  const explicitLeadTime = toNumber(item?.leadTimeDays);
+  if (explicitLeadTime > 0) return Math.round(explicitLeadTime);
+
+  const fromLabel = String(item?.leadTime || '').match(/(\d+)/);
+  const parsed = fromLabel ? Number(fromLabel[1]) : 0;
+  return parsed > 0 ? parsed : DEFAULT_LEAD_TIME_DAYS;
+};
+
+const getAvgDailySales = (item, leadTimeDays) => {
+  const explicit = toNumber(item?.avgDailySales);
+  if (explicit > 0) return explicit;
+
+  const predictedDemand = toNumber(item?.predictedDemand);
+  if (predictedDemand > 0 && leadTimeDays > 0) {
+    return predictedDemand / leadTimeDays;
+  }
+
+  const reorderLevel = toNumber(item?.reorderLevel);
+  return reorderLevel > 0 && leadTimeDays > 0 ? reorderLevel / leadTimeDays : 0;
+};
+
+const enhanceRestockSuggestionsWithMl = async (suggestions) => {
+  if (!Array.isArray(suggestions) || suggestions.length === 0) {
+    return {
+      suggestions: [],
+      attemptedCount: 0,
+      successCount: 0,
+    };
+  }
+
+  const enhanced = [];
+  let attemptedCount = 0;
+  let successCount = 0;
+  let mlUnavailable = false;
+
+  for (const item of suggestions) {
+    const productId = Math.round(toNumber(item?.productId));
+    const leadTimeDays = getLeadTimeDays(item);
+    const avgDailySales = getAvgDailySales(item, leadTimeDays);
+    const payload = {
+      product_id: productId,
+      current_stock: Math.max(0, Math.round(toNumber(item?.currentStock))),
+      avg_daily_sales: Math.max(0, Number(avgDailySales.toFixed(2))),
+      lead_time_days: Math.max(1, Math.round(leadTimeDays)),
+    };
+
+    if (productId <= 0) {
+      enhanced.push({
+        ...item,
+        leadTimeDays: payload.lead_time_days,
+        leadTime: `${payload.lead_time_days} days`,
+        avgDailySales: payload.avg_daily_sales,
+        predictionSource: 'Rule',
+      });
+      continue;
+    }
+
+    attemptedCount += 1;
+
+    if (mlUnavailable) {
+      enhanced.push({
+        ...item,
+        leadTimeDays: payload.lead_time_days,
+        leadTime: `${payload.lead_time_days} days`,
+        avgDailySales: payload.avg_daily_sales,
+        predictionSource: 'Rule',
+      });
+      continue;
+    }
+
+    try {
+      const mlResponse = await api.post('ml/predict/', payload);
+      const mlSuggestedQty = Math.max(0, Math.round(toNumber(mlResponse?.data?.suggested_restock_qty)));
+      successCount += 1;
+
+      enhanced.push({
+        ...item,
+        leadTimeDays: payload.lead_time_days,
+        leadTime: `${payload.lead_time_days} days`,
+        avgDailySales: payload.avg_daily_sales,
+        suggestedQty: mlSuggestedQty,
+        predictedDemand: Math.max(
+          Math.round(payload.avg_daily_sales * payload.lead_time_days),
+          toNumber(item?.predictedDemand)
+        ),
+        predictionSource: 'ML',
+      });
+    } catch {
+      mlUnavailable = true;
+      enhanced.push({
+        ...item,
+        leadTimeDays: payload.lead_time_days,
+        leadTime: `${payload.lead_time_days} days`,
+        avgDailySales: payload.avg_daily_sales,
+        predictionSource: 'Rule',
+      });
+    }
+  }
+
+  return {
+    suggestions: enhanced,
+    attemptedCount,
+    successCount,
+  };
+};
+
 const Reports = () => {
   const [dateFilter, setDateFilter] = useState('all_time');
   const [reportType, setReportType] = useState('all');
@@ -47,24 +156,53 @@ const Reports = () => {
   }, [summaryData.grossProfit, summaryData.totalRevenue]);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchReports = async () => {
       setIsFetching(true);
       try {
         const res = await api.get('reports/dashboard/', { params: { date_range: dateFilter } });
-        setReportData(normalizeReportData(res.data));
-        setMessage((prev) => (prev.type === 'error' ? { type: '', text: '' } : prev));
+        const normalizedData = normalizeReportData(res.data);
+        const mlEnhanced = await enhanceRestockSuggestionsWithMl(normalizedData.restockSuggestions);
+
+        if (isCancelled) return;
+
+        setReportData({
+          ...normalizedData,
+          summaryData: {
+            ...normalizedData.summaryData,
+            restockSuggestions: mlEnhanced.suggestions.length,
+          },
+          restockSuggestions: mlEnhanced.suggestions,
+        });
+
+        if (mlEnhanced.attemptedCount > 0 && mlEnhanced.successCount === 0) {
+          setMessage({
+            type: 'error',
+            text: 'ML prediction service is unavailable. Showing baseline restock suggestions.',
+          });
+        } else {
+          setMessage((prev) => (prev.type === 'error' ? { type: '', text: '' } : prev));
+        }
       } catch (error) {
+        if (isCancelled) return;
         setReportData(EMPTY_REPORT_DATA);
         setMessage({
           type: 'error',
           text: getApiErrorMessage(error, 'Failed to load reports from server.'),
         });
       } finally {
-        setIsFetching(false);
+        if (!isCancelled) {
+          setIsFetching(false);
+        }
       }
     };
 
     fetchReports();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [dateFilter]);
 
   const handleExportReport = () => {

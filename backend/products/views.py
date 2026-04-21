@@ -676,13 +676,38 @@ class ReportsDashboardView(APIView):
 
         # ---------- SMART RESTOCK ----------
         # Temporary rule-based logic until ML model is plugged in
-        restock_products_qs = Product.objects.filter(
+        restock_products = list(
+            Product.objects.filter(
             stock__lte=F("reorder_level")
-        ).select_related("category")[:10]
+            ).select_related("category", "supplier")[:10]
+        )
+
+        recent_sales_window_start = timezone.now() - timedelta(days=30)
+        recent_sales_velocity = (
+            SaleItem.objects.filter(
+                sale__status="Completed",
+                sale__created_at__gte=recent_sales_window_start,
+                product__in=restock_products,
+            )
+            .values("product_id")
+            .annotate(units_sold=Sum("quantity"))
+        )
+        avg_daily_sales_map = {
+            item["product_id"]: float(item["units_sold"] or 0) / 30.0
+            for item in recent_sales_velocity
+        }
 
         restock_suggestions = []
-        for product in restock_products_qs:
-            predicted_demand = max(product.reorder_level * 2, product.reorder_level + 10)
+        for product in restock_products:
+            lead_time_days = max(
+                int(getattr(product.supplier, "lead_time_days", 0) or 7),
+                1,
+            )
+            avg_daily_sales = avg_daily_sales_map.get(product.id, 0.0)
+            predicted_demand = max(
+                int(round(avg_daily_sales * lead_time_days)),
+                int(product.reorder_level or 0),
+            )
             suggested_qty = max(predicted_demand - product.stock, 0)
 
             priority = "Medium"
@@ -692,12 +717,15 @@ class ReportsDashboardView(APIView):
                 priority = "Low"
 
             restock_suggestions.append({
+                "productId": product.id,
                 "product": product.name,
                 "currentStock": product.stock,
                 "reorderLevel": product.reorder_level,
                 "predictedDemand": int(predicted_demand),
                 "suggestedQty": int(suggested_qty),
-                "leadTime": "7 days",
+                "leadTimeDays": lead_time_days,
+                "leadTime": f"{lead_time_days} days",
+                "avgDailySales": round(float(avg_daily_sales), 2),
                 "priority": priority,
             })
 

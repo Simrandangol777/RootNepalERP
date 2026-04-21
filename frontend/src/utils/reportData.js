@@ -85,7 +85,18 @@ export const normalizeReportData = (payload) => {
     lowStockItems: Array.isArray(safePayload.lowStockItems) ? safePayload.lowStockItems : [],
     outOfStockItems: Array.isArray(safePayload.outOfStockItems) ? safePayload.outOfStockItems : [],
     restockSuggestions: Array.isArray(safePayload.restockSuggestions)
-      ? safePayload.restockSuggestions
+      ? safePayload.restockSuggestions.map((item) => ({
+          productId: toNumber(item?.productId),
+          product: item?.product || "Unnamed product",
+          currentStock: toNumber(item?.currentStock),
+          reorderLevel: toNumber(item?.reorderLevel),
+          predictedDemand: toNumber(item?.predictedDemand),
+          suggestedQty: toNumber(item?.suggestedQty),
+          leadTime: item?.leadTime || "7 days",
+          leadTimeDays: toNumber(item?.leadTimeDays),
+          avgDailySales: toNumber(item?.avgDailySales),
+          priority: item?.priority || "Watch",
+        }))
       : [],
     categoryStock: Array.isArray(safePayload.categoryStock) ? safePayload.categoryStock : [],
     monthlySales: Array.isArray(safePayload.monthlySales)
