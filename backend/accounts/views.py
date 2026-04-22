@@ -51,20 +51,59 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data["email"]
+        identifier = serializer.validated_data["identifier"]
         password = serializer.validated_data["password"]
 
-        user = User.objects.filter(email__iexact=email).first()
-        if user is None:
-            user = User.objects.filter(username__iexact=email).first()
+        password_candidates = [password]
+        stripped_password = password.strip()
+        if stripped_password and stripped_password != password:
+            password_candidates.append(stripped_password)
 
-        if user is None:
+        candidate_users = list(User.objects.filter(email__iexact=identifier).order_by("id"))
+        seen_user_ids = {user.id for user in candidate_users}
+        for user in User.objects.filter(username__iexact=identifier).order_by("id"):
+            if user.id not in seen_user_ids:
+                candidate_users.append(user)
+                seen_user_ids.add(user.id)
+
+        if not candidate_users:
             return Response(
                 {"message": "Invalid credentials."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        auth_user = authenticate(username=user.username, password=password)
+        def authenticate_candidate_user(candidate_user):
+            for candidate_password in password_candidates:
+                auth_user = authenticate(
+                    username=candidate_user.username,
+                    password=candidate_password,
+                )
+                if auth_user is not None:
+                    return auth_user
+
+                # Fallback for environments where auth backend configuration can block authenticate().
+                if candidate_user.check_password(candidate_password):
+                    return candidate_user
+            return None
+
+        auth_user = None
+        inactive_match_found = False
+        for candidate_user in candidate_users:
+            matched_user = authenticate_candidate_user(candidate_user)
+            if matched_user is None:
+                continue
+            if not matched_user.is_active:
+                inactive_match_found = True
+                continue
+            auth_user = matched_user
+            break
+
+        if auth_user is None and inactive_match_found:
+            return Response(
+                {"message": "Account is inactive. Please contact support."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         if auth_user is None:
             return Response(
                 {"message": "Invalid credentials."},

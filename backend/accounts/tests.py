@@ -58,6 +58,50 @@ class AccountsAPITests(APITestCase):
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
 
+    def test_login_with_username_returns_tokens(self):
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "existinguser", "password": self.password},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+
+    def test_login_with_duplicate_case_variant_emails_uses_matching_password(self):
+        User.objects.create_user(
+            username="dupefirst",
+            email="dupe@example.com",
+            password="WrongPass1!",
+        )
+        User.objects.create_user(
+            username="dupesecond",
+            email="Dupe@Example.com",
+            password="RightPass1!",
+        )
+
+        response = self.client.post(
+            "/api/auth/login/",
+            {"email": "dupe@example.com", "password": "RightPass1!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+
+    def test_login_accepts_password_with_accidental_surrounding_spaces(self):
+        response = self.client.post(
+            "/api/auth/login/",
+            {"email": "existing@example.com", "password": f"  {self.password}  "},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+
     def test_me_requires_authentication(self):
         response = self.client.get("/api/auth/me/")
 

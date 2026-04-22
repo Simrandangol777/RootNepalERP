@@ -16,7 +16,7 @@ class RegisterSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         email = value.strip().lower()
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             raise serializers.ValidationError("Email already exists.")
         return email
 
@@ -57,16 +57,19 @@ class RegisterSerializer(serializers.Serializer):
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=False, allow_blank=True)
+    username = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False, write_only=True)
 
     def validate(self, attrs):
         email = (attrs.get("email") or "").strip().lower()
+        username = (attrs.get("username") or "").strip()
         password = attrs.get("password") or ""
 
-        if not email or not password:
-            raise serializers.ValidationError("Email and password are required.")
+        identifier = email or username
+        if not identifier or not password:
+            raise serializers.ValidationError("Email/username and password are required.")
 
-        attrs["email"] = email
+        attrs["identifier"] = identifier
         attrs["password"] = password
         return attrs
 
